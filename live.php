@@ -96,6 +96,18 @@ include 'includes/sidebar.php';
             </div>
             <button class="show-more-btn" id="showDescBtn">Show more</button>
         </div>
+
+        <!-- ====== Category Section (Redesigned) ====== -->
+        <div class="stream-category" id="streamCategory">
+            <div class="category-image" id="categoryImage"></div>
+            <div class="category-info">
+                <span class="category-label">Category</span>
+                <span class="category-name" id="categoryName">Loading...</span>
+                <span class="category-viewers" id="categoryViewers">0 viewers</span>
+            </div>
+        </div>
+        <!-- ====== End Category Section ====== -->
+
     </div>
 
     <div class="live-chat">
@@ -191,6 +203,28 @@ include 'includes/sidebar.php';
 </div>
 
 <?php include 'includes/footer.php'; ?>
+<script>
+    // داده‌های دسته‌بندی این استریم (قابل تغییر)
+    window.currentStreamCategory = {
+        name: "Minecraft",
+        viewers: "42K"
+    };
+
+    // نمایش خودکار پس از لود صفحه
+    document.addEventListener("DOMContentLoaded", function() {
+        const cat = window.currentStreamCategory;
+        const nameEl = document.getElementById('categoryName');
+        const viewersEl = document.getElementById('categoryViewers');
+        const imgEl = document.getElementById('categoryImage');
+
+        if (nameEl && cat.name) nameEl.textContent = cat.name;
+        if (viewersEl && cat.viewers) viewersEl.textContent = cat.viewers + " viewers";
+        if (imgEl && cat.name) {
+            const slug = cat.name.toLowerCase().replace(/\s+/g, '');
+            imgEl.style.backgroundImage = `url('assets/categories/${slug}.webp')`;
+        }
+    });
+</script>
 <script src="js/live.js"></script>
 </body>
 </html>
