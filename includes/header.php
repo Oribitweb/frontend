@@ -60,8 +60,32 @@ if (!isset($logoImg)) $logoImg = 'assets/img/logo.png';
                     </div>
                 </button>
 
-                <!-- دراپ‌داون پروفایل - توسط جاوااسکریپت پر می‌شود -->
-                <div class="dropdown" id="profileDropdown"></div>
+                <div class="dropdown" id="profileDropdown">
+                    <div class="dropdown__section">
+                        <p class="dropdown__label">Account</p>
+                        <a href="index.php?popup=login" class="dropdown__item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                            Log In
+                        </a>
+                        <a href="index.php?popup=signup" class="dropdown__item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                            Sign Up
+                        </a>
+                    </div>
+                    <div class="dropdown__divider"></div>
+                    <div class="dropdown__section">
+                        <p class="dropdown__label">Appearance</p>
+                        <button class="dropdown__item dropdown__theme-toggle" id="themeToggle">
+                            <span class="dropdown__theme-icon-dark">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            </span>
+                            <span class="dropdown__theme-icon-light">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            </span>
+                            <span id="themeLabel">Light Mode</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
