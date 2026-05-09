@@ -63,16 +63,13 @@ if (showMoreBtn) {
     });
 }
 
-// ===== Build Profile Dropdown Based on Login State =====
+// ===== Build Profile Dropdown =====
 function buildDropdown() {
     if (!profileDropdown) return;
-
-    // Clear existing content
     profileDropdown.innerHTML = '';
 
     if (currentUser) {
-        // ----- Logged in menu -----
-        // Your Orbiter (user info)
+        // Your Orbiter
         const yourOrbiter = createDropdownItem(
             'user-info-item',
             '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="none"/></svg>',
@@ -82,7 +79,6 @@ function buildDropdown() {
             e.stopPropagation();
             profileDropdown.classList.remove('active');
             showToast(`Welcome ${currentUser.username}! This is your Orbit.`);
-            // می‌توانید به صفحه پروفایل هدایت کنید: window.location.href = 'profile.php';
         });
         profileDropdown.appendChild(yourOrbiter);
 
@@ -99,7 +95,6 @@ function buildDropdown() {
         });
         profileDropdown.appendChild(settingsItem);
 
-        // Separator
         profileDropdown.appendChild(createSeparator());
 
         // My Videos
@@ -141,7 +136,6 @@ function buildDropdown() {
         });
         profileDropdown.appendChild(orbiterStudio);
 
-        // Separator
         profileDropdown.appendChild(createSeparator());
 
         // Advertisement
@@ -157,7 +151,6 @@ function buildDropdown() {
         });
         profileDropdown.appendChild(advertisement);
 
-        // Separator
         profileDropdown.appendChild(createSeparator());
 
         // Log out
@@ -173,15 +166,14 @@ function buildDropdown() {
         });
         profileDropdown.appendChild(logoutItem);
 
-        // Separator
         profileDropdown.appendChild(createSeparator());
 
-        // Theme toggle (always present)
+        // Theme toggle
         const themeItem = createThemeToggleItem();
         profileDropdown.appendChild(themeItem);
 
     } else {
-        // ----- Logged out menu -----
+        // Logged out menu
         const loginItem = createDropdownItem(
             'login-item',
             '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>',
@@ -213,7 +205,6 @@ function buildDropdown() {
     }
 }
 
-// Helper to create a dropdown item with icon and text
 function createDropdownItem(className, iconSvg, text) {
     const div = document.createElement('div');
     div.className = `dropdown__item ${className}`;
@@ -230,7 +221,7 @@ function createSeparator() {
 function createThemeToggleItem() {
     const container = document.createElement('div');
     container.className = 'dropdown__item dropdown__theme-toggle';
-    container.id = 'themeToggle';  // برای سازگاری با رویداد موجود
+    container.id = 'themeToggle';
     container.innerHTML = `
         <span class="dropdown__theme-icon-dark">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -240,20 +231,16 @@ function createThemeToggleItem() {
         </span>
         <span id="themeLabel">${html.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
     `;
-    // attach theme toggle event
-    const btn = container;
-    btn.addEventListener('click', (e) => {
+    container.addEventListener('click', (e) => {
         e.stopPropagation();
         const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         setTheme(newTheme);
-        // تحديث لیبل داخل همین دکمه
-        const labelSpan = btn.querySelector('#themeLabel');
+        const labelSpan = container.querySelector('#themeLabel');
         if (labelSpan) labelSpan.textContent = newTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
     });
     return container;
 }
 
-// Update profile avatar (first letter or default)
 function updateProfileAvatar(initial) {
     const container = document.getElementById('profileAvatar');
     if (container) {
@@ -265,7 +252,6 @@ function updateProfileAvatar(initial) {
     }
 }
 
-// Update whole UI after login/logout
 function updateUIForUser() {
     buildDropdown();
     if (currentUser) {
@@ -295,7 +281,7 @@ document.addEventListener('click', (e) => {
     if (createDropdown && !createDropdown.contains(e.target) && e.target !== createBtn) createDropdown.classList.remove('active');
 });
 
-// ===== API Functions (بدون تغییر) =====
+// ===== API Functions =====
 async function authorizedFetch(url, options = {}) {
     try {
         const res = await fetch(url, { ...options, credentials: 'include' });
@@ -324,7 +310,7 @@ async function loginUser(credentials) {
         const errText = await res.text();
         throw new Error(errText || 'Login failed');
     }
-    return await res.json();
+    return await res.json(); // معمولاً {"Login was successful"}
 }
 async function registerUser(userData) {
     const res = await fetch(`${API_BASE}/register`, {
@@ -346,23 +332,24 @@ async function logoutUser() {
     showToast('Logged out successfully');
     window.location.reload();
 }
+
+// دریافت اطلاعات کاربر جاری (در صورت وجود اندپوینت)
 async function fetchCurrentUser() {
     try {
         const res = await authorizedFetch(`${API_BASE}/users/me`);
         if (res.ok) {
             currentUser = await res.json();
-            updateUIForUser();
         } else {
+            // اگر اندپوینت موجود نیست، از کوکی یا localStorage استفاده نمی‌کنیم
             currentUser = null;
-            updateUIForUser();
         }
     } catch (err) {
         currentUser = null;
-        updateUIForUser();
     }
+    updateUIForUser();
 }
 
-// ===== Popups (بدون تغییر) =====
+// ===== Popups =====
 function openPopup(popup) { closeAllPopups(); popup.classList.add('active'); overlay.classList.add('active'); currentPopup = popup; document.body.style.overflow = 'hidden'; }
 function closeAllPopups() { [loginPopup, signupPopup, forgotPopup, uploadPopup, shortPopup, postPopup].forEach(p => p.classList.remove('active')); overlay.classList.remove('active'); document.body.style.overflow = ''; currentPopup = null; }
 if (overlay) overlay.addEventListener('click', closeAllPopups);
@@ -413,9 +400,16 @@ if (loginForm) {
         try {
             await loginUser({ username, password });
             closeAllPopups();
+            // بعد از لاگین، ابتدا سعی می‌کنیم کاربر را از سرور بگیریم
             await fetchCurrentUser();
+            // اگر fetchCurrentUser موفق نبود (مثلاً 404)، خودمان یک آبجکت موقت می‌سازیم
+            if (!currentUser) {
+                currentUser = { username: username, id: null };
+                updateUIForUser();
+            }
             showToast(`Welcome back, ${username}!`);
-            window.location.reload();
+            // به جای رفرش کامل، فقط UI را به‌روز می‌کنیم
+            // window.location.reload(); // اختیاری
         } catch (err) {
             const errorMsg = err.message.includes('Invalid') ? 'Invalid username or password' : 'Login failed';
             showFieldError(loginForm, errorMsg);
@@ -475,7 +469,7 @@ if (forgotForm) {
     });
 }
 
-// ===== Helper Functions (بدون تغییر) =====
+// ===== Helper Functions =====
 function clearFormErrors(form) {
     form.querySelectorAll('.input-group__error').forEach(el => el.textContent = '');
 }
@@ -495,7 +489,7 @@ function escapeHtml(str) {
     return str.replace(/[&<>]/g, (m) => (m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'));
 }
 
-// ===== Description Editor (بدون تغییر) =====
+// ===== Description Editor =====
 const descriptionDiv = document.getElementById('videoDescription');
 const descCounter = document.getElementById('descCounter');
 const MAX_CHARS = 5000;
@@ -571,7 +565,7 @@ if (descriptionDiv) {
     });
 }
 
-// ===== Thumbnail & Video Upload (بدون تغییر) =====
+// ===== Thumbnail & Video Upload =====
 const thumbUploadArea = document.getElementById('thumbUploadArea');
 const thumbUploadInput = document.getElementById('thumbUploadInput');
 const chooseFrameBtn = document.getElementById('chooseFrameBtn');
@@ -611,7 +605,7 @@ if (videoFileInput) {
     });
 }
 
-// ===== Tags (بدون تغییر) =====
+// ===== Tags =====
 const tagDisplay = document.getElementById('tagDisplay');
 const tagInput = document.getElementById('tagInput');
 const addTagBtn = document.getElementById('addTagBtn');
@@ -645,7 +639,7 @@ if (tagInput && addTagBtn) {
     tagInput.addEventListener('keyup', (e) => { if (e.key === ',') addTag(tagInput.value.replace(',', '')); });
 }
 
-// ===== Short Video (بدون تغییر) =====
+// ===== Short Video =====
 const shortFileArea = document.getElementById('shortFileArea');
 const shortFileInput = document.getElementById('shortFileInput');
 const shortFileName = document.getElementById('shortFileName');
@@ -656,7 +650,7 @@ if (shortFileInput) {
     });
 }
 
-// ===== Post Image (بدون تغییر) =====
+// ===== Post Image =====
 const postImageArea = document.getElementById('postImageArea');
 const postImageInput = document.getElementById('postImageInput');
 const postImageName = document.getElementById('postImageName');
@@ -667,7 +661,7 @@ if (postImageInput) {
     });
 }
 
-// ===== Form Submits (بدون تغییر) =====
+// ===== Form Submits =====
 const uploadForm = document.getElementById('uploadForm');
 if (uploadForm) {
     uploadForm.addEventListener('submit', (e) => {
@@ -710,7 +704,7 @@ if (postForm) {
     });
 }
 
-// ===== Avatar Upload (بدون تغییر) =====
+// ===== Avatar Upload =====
 const avatarInput = document.getElementById('avatarInput');
 const avatarPreview = document.getElementById('avatarPreview');
 const avatarUploadArea = document.getElementById('avatarUpload');
@@ -726,7 +720,7 @@ if (avatarInput) {
     });
 }
 
-// ===== Toast (بدون تغییر) =====
+// ===== Toast =====
 function showToast(msg, duration=3000) {
     if (!toastContainer) return;
     const toast = document.createElement('div'); toast.className = 'toast'; toast.textContent = msg;
@@ -734,7 +728,7 @@ function showToast(msg, duration=3000) {
     setTimeout(() => { if (toast.parentNode) toast.remove(); }, duration);
 }
 
-// ===== Feed (بدون تغییر) =====
+// ===== Feed =====
 function generateLongVideo(num, isTrend = false) {
     return { type: 'video', title: `Video Title ${num}`, channel: `Channel Name ${num}`, views: '0', time: 'Now', duration: '10:00', isTrend };
 }

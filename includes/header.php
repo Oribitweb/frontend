@@ -60,7 +60,7 @@ if (!isset($logoImg)) $logoImg = 'assets/img/logo.png';
                     </div>
                 </button>
 
-                <!-- منوی پروفایل که توسط جاوااسکریپت پر می‌شود -->
+                <!-- دراپ‌داون پروفایل - توسط جاوااسکریپت پر می‌شود -->
                 <div class="dropdown" id="profileDropdown"></div>
             </div>
         </div>
