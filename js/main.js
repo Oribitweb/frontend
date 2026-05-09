@@ -1,5 +1,5 @@
 // ===== API Base URL =====
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8000'; // <-- آدرس بک‌اند خود را تغییر دهید
 
 // ===== DOM Elements =====
 const body = document.body;
@@ -15,7 +15,7 @@ const forgotPopup = document.getElementById('forgotPopup');
 const uploadPopup = document.getElementById('uploadPopup');
 const shortPopup = document.getElementById('shortPopup');
 const postPopup = document.getElementById('postPopup');
-const themeToggleGlobal = document.getElementById('themeToggle');
+const themeToggle = document.getElementById('themeToggle');
 const themeLabel = document.getElementById('themeLabel');
 const videoGrid = document.getElementById('videoGrid');
 const toastContainer = document.getElementById('toastContainer');
@@ -30,255 +30,110 @@ function setTheme(theme) {
     localStorage.setItem('orbit-theme', theme);
     updateThemeLabel(theme);
 }
-function updateThemeLabel(theme) { 
-    const label = document.getElementById('themeLabel');
-    if (label) label.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
-}
+function updateThemeLabel(theme) { themeLabel.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode'; }
 const savedTheme = localStorage.getItem('orbit-theme') || 'dark';
 setTheme(savedTheme);
-
-if (themeToggleGlobal) {
-    themeToggleGlobal.addEventListener('click', () => {
-        const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-    });
-}
+themeToggle.addEventListener('click', () => {
+    const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+});
 
 // ===== Sidebar Toggle =====
-if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('sidebar--collapsed');
-    });
-}
+sidebarToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('sidebar--collapsed');
+});
 
 // ===== Show More Channels =====
 const showMoreBtn = document.getElementById('showMoreChannels');
 const hiddenChannels = document.querySelectorAll('.hidden-channel');
 let channelsExpanded = false;
-if (showMoreBtn) {
-    showMoreBtn.addEventListener('click', () => {
-        channelsExpanded = !channelsExpanded;
-        hiddenChannels.forEach(ch => ch.style.display = channelsExpanded ? 'flex' : 'none');
-        showMoreBtn.textContent = channelsExpanded ? 'Show less' : 'Show more';
-    });
-}
+showMoreBtn.addEventListener('click', () => {
+    channelsExpanded = !channelsExpanded;
+    hiddenChannels.forEach(ch => ch.style.display = channelsExpanded ? 'flex' : 'none');
+    showMoreBtn.textContent = channelsExpanded ? 'Show less' : 'Show more';
+});
 
-// ===== Build Profile Dropdown =====
-function buildDropdown() {
+// ===== Dropdown Initialization (بدون innerHTML) =====
+function initProfileDropdown() {
     if (!profileDropdown) return;
-    profileDropdown.innerHTML = '';
-
-    if (currentUser) {
-        // Your Orbiter
-        const yourOrbiter = createDropdownItem(
-            'user-info-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="none"/></svg>',
-            `Your Orbiter (${escapeHtml(currentUser.username)})`
-        );
-        yourOrbiter.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast(`Welcome ${currentUser.username}! This is your Orbit.`);
-        });
-        profileDropdown.appendChild(yourOrbiter);
-
-        // Settings
-        const settingsItem = createDropdownItem(
-            'settings-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-            'Settings'
-        );
-        settingsItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast('Settings page coming soon.');
-        });
-        profileDropdown.appendChild(settingsItem);
-
-        profileDropdown.appendChild(createSeparator());
-
-        // My Videos
-        const myVideos = createDropdownItem(
-            'myvideos-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><polyline points="8 9 12 12 8 15"/><line x1="16" y1="9" x2="16" y2="15"/></svg>',
-            'My Videos'
-        );
-        myVideos.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast('Your video library will appear here.');
-        });
-        profileDropdown.appendChild(myVideos);
-
-        // Live Streaming
-        const liveStreaming = createDropdownItem(
-            'live-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4V2M8 6L6 4M16 6l2-2M12 20v2M4 12H2M6 16l-2 2M18 16l2 2M20 12h2"/><circle cx="12" cy="12" r="3"/></svg>',
-            'Live Streaming'
-        );
-        liveStreaming.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast('Go live feature is under development.');
-        });
-        profileDropdown.appendChild(liveStreaming);
-
-        // Orbiter Studio
-        const orbiterStudio = createDropdownItem(
-            'studio-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/><path d="M12 7v10M7 12h10"/></svg>',
-            'Orbiter Studio'
-        );
-        orbiterStudio.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast('Orbiter Studio dashboard coming soon.');
-        });
-        profileDropdown.appendChild(orbiterStudio);
-
-        profileDropdown.appendChild(createSeparator());
-
-        // Advertisement
-        const advertisement = createDropdownItem(
-            'ad-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 13h10M12 7v10"/></svg>',
-            'Advertisement'
-        );
-        advertisement.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            showToast('Ad monetization panel will be available soon.');
-        });
-        profileDropdown.appendChild(advertisement);
-
-        profileDropdown.appendChild(createSeparator());
-
-        // Log out
-        const logoutItem = createDropdownItem(
-            'logout-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
-            'Log out'
-        );
-        logoutItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.remove('active');
-            logoutUser();
-        });
-        profileDropdown.appendChild(logoutItem);
-
-        profileDropdown.appendChild(createSeparator());
-
-        // Theme toggle
-        const themeItem = createThemeToggleItem();
-        profileDropdown.appendChild(themeItem);
-
-    } else {
-        // Logged out menu
-        const loginItem = createDropdownItem(
-            'login-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>',
-            'Log In'
-        );
-        loginItem.addEventListener('click', (e) => {
+    if (profileDropdown.children.length === 0) {
+        const userInfo = document.createElement('div');
+        userInfo.className = 'dropdown-item user-info';
+        userInfo.style.display = 'none';
+        const loginItem = document.createElement('div');
+        loginItem.className = 'dropdown-item login-item';
+        loginItem.textContent = 'Log In';
+        const signupItem = document.createElement('div');
+        signupItem.className = 'dropdown-item signup-item';
+        signupItem.textContent = 'Sign Up';
+        const logoutItem = document.createElement('div');
+        logoutItem.className = 'dropdown-item logout-item';
+        logoutItem.textContent = 'Logout';
+        logoutItem.style.display = 'none';
+        profileDropdown.append(userInfo, loginItem, signupItem, logoutItem);
+    }
+    // attach events once
+    const loginItem = profileDropdown.querySelector('.login-item');
+    const signupItem = profileDropdown.querySelector('.signup-item');
+    const logoutItem = profileDropdown.querySelector('.logout-item');
+    if (loginItem) {
+        loginItem.replaceWith(loginItem.cloneNode(true));
+        profileDropdown.querySelector('.login-item').addEventListener('click', (e) => {
             e.stopPropagation();
             profileDropdown.classList.remove('active');
             openPopup(loginPopup);
         });
-        profileDropdown.appendChild(loginItem);
-
-        const signupItem = createDropdownItem(
-            'signup-item',
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',
-            'Sign Up'
-        );
-        signupItem.addEventListener('click', (e) => {
+    }
+    if (signupItem) {
+        signupItem.replaceWith(signupItem.cloneNode(true));
+        profileDropdown.querySelector('.signup-item').addEventListener('click', (e) => {
             e.stopPropagation();
             profileDropdown.classList.remove('active');
             openPopup(signupPopup);
         });
-        profileDropdown.appendChild(signupItem);
-
-        profileDropdown.appendChild(createSeparator());
-
-        const themeItem = createThemeToggleItem();
-        profileDropdown.appendChild(themeItem);
+    }
+    if (logoutItem) {
+        logoutItem.replaceWith(logoutItem.cloneNode(true));
+        profileDropdown.querySelector('.logout-item').addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdown.classList.remove('active');
+            logoutUser();
+        });
     }
 }
 
-function createDropdownItem(className, iconSvg, text) {
-    const div = document.createElement('div');
-    div.className = `dropdown__item ${className}`;
-    div.innerHTML = `${iconSvg}<span>${escapeHtml(text)}</span>`;
-    return div;
-}
-
-function createSeparator() {
-    const hr = document.createElement('div');
-    hr.className = 'dropdown__divider';
-    return hr;
-}
-
-function createThemeToggleItem() {
-    const container = document.createElement('div');
-    container.className = 'dropdown__item dropdown__theme-toggle';
-    container.id = 'themeToggle';
-    container.innerHTML = `
-        <span class="dropdown__theme-icon-dark">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </span>
-        <span class="dropdown__theme-icon-light">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </span>
-        <span id="themeLabel">${html.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-    `;
-    container.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
-        const labelSpan = container.querySelector('#themeLabel');
-        if (labelSpan) labelSpan.textContent = newTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
-    });
-    return container;
-}
-
-function updateProfileAvatar(initial) {
-    const container = document.getElementById('profileAvatar');
-    if (container) {
-        if (initial) {
-            container.innerHTML = `<span style="font-weight:700;font-size:1rem;">${escapeHtml(initial)}</span>`;
-        } else {
-            container.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-        }
-    }
-}
-
-function updateUIForUser() {
-    buildDropdown();
+function updateProfileDropdownState() {
+    if (!profileDropdown) return;
+    const userInfo = profileDropdown.querySelector('.user-info');
+    const loginItem = profileDropdown.querySelector('.login-item');
+    const signupItem = profileDropdown.querySelector('.signup-item');
+    const logoutItem = profileDropdown.querySelector('.logout-item');
     if (currentUser) {
-        updateProfileAvatar(currentUser.username.charAt(0).toUpperCase());
+        if (userInfo) { userInfo.textContent = currentUser.username; userInfo.style.display = 'block'; }
+        if (loginItem) loginItem.style.display = 'none';
+        if (signupItem) signupItem.style.display = 'none';
+        if (logoutItem) logoutItem.style.display = 'block';
     } else {
-        updateProfileAvatar(null);
+        if (userInfo) userInfo.style.display = 'none';
+        if (loginItem) loginItem.style.display = 'block';
+        if (signupItem) signupItem.style.display = 'block';
+        if (logoutItem) logoutItem.style.display = 'none';
     }
 }
 
-// ===== Dropdown Toggle Events =====
-if (profileBtn) {
-    profileBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        profileDropdown.classList.toggle('active');
-        if (createDropdown) createDropdown.classList.remove('active');
-    });
-}
-if (createBtn) {
-    createBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        createDropdown.classList.toggle('active');
-        if (profileDropdown) profileDropdown.classList.remove('active');
-    });
-}
+profileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileDropdown.classList.toggle('active');
+    createDropdown.classList.remove('active');
+});
+createBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    createDropdown.classList.toggle('active');
+    profileDropdown.classList.remove('active');
+});
 document.addEventListener('click', (e) => {
-    if (profileDropdown && !profileDropdown.contains(e.target) && e.target !== profileBtn) profileDropdown.classList.remove('active');
-    if (createDropdown && !createDropdown.contains(e.target) && e.target !== createBtn) createDropdown.classList.remove('active');
+    if (!profileDropdown.contains(e.target) && e.target !== profileBtn) profileDropdown.classList.remove('active');
+    if (!createDropdown.contains(e.target) && e.target !== createBtn) createDropdown.classList.remove('active');
 });
 
 // ===== API Functions =====
@@ -310,7 +165,7 @@ async function loginUser(credentials) {
         const errText = await res.text();
         throw new Error(errText || 'Login failed');
     }
-    return await res.json(); // معمولاً {"Login was successful"}
+    return await res.json();
 }
 async function registerUser(userData) {
     const res = await fetch(`${API_BASE}/register`, {
@@ -328,31 +183,34 @@ async function registerUser(userData) {
 async function logoutUser() {
     await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
     currentUser = null;
-    updateUIForUser();
+    updateProfileDropdownState();
+    updateProfileAvatar(null);
     showToast('Logged out successfully');
     window.location.reload();
 }
-
-// دریافت اطلاعات کاربر جاری (در صورت وجود اندپوینت)
 async function fetchCurrentUser() {
     try {
         const res = await authorizedFetch(`${API_BASE}/users/me`);
         if (res.ok) {
             currentUser = await res.json();
+            updateProfileDropdownState();
+            updateProfileAvatar(currentUser.username.charAt(0).toUpperCase());
         } else {
-            // اگر اندپوینت موجود نیست، از کوکی یا localStorage استفاده نمی‌کنیم
             currentUser = null;
+            updateProfileDropdownState();
+            updateProfileAvatar(null);
         }
     } catch (err) {
         currentUser = null;
+        updateProfileDropdownState();
+        updateProfileAvatar(null);
     }
-    updateUIForUser();
 }
 
 // ===== Popups =====
 function openPopup(popup) { closeAllPopups(); popup.classList.add('active'); overlay.classList.add('active'); currentPopup = popup; document.body.style.overflow = 'hidden'; }
 function closeAllPopups() { [loginPopup, signupPopup, forgotPopup, uploadPopup, shortPopup, postPopup].forEach(p => p.classList.remove('active')); overlay.classList.remove('active'); document.body.style.overflow = ''; currentPopup = null; }
-if (overlay) overlay.addEventListener('click', closeAllPopups);
+overlay.addEventListener('click', closeAllPopups);
 document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => {
         const popupId = btn.getAttribute('data-close');
@@ -366,7 +224,7 @@ document.querySelectorAll('#createDropdown [data-action]').forEach(el => {
     el.addEventListener('click', (e) => {
         e.stopPropagation();
         const action = el.getAttribute('data-action');
-        if (createDropdown) createDropdown.classList.remove('active');
+        createDropdown.classList.remove('active');
         if (action === 'uploadVideo') openPopup(uploadPopup);
         else if (action === 'uploadShort') openPopup(shortPopup);
         else if (action === 'newPost') openPopup(postPopup);
@@ -400,16 +258,9 @@ if (loginForm) {
         try {
             await loginUser({ username, password });
             closeAllPopups();
-            // بعد از لاگین، ابتدا سعی می‌کنیم کاربر را از سرور بگیریم
             await fetchCurrentUser();
-            // اگر fetchCurrentUser موفق نبود (مثلاً 404)، خودمان یک آبجکت موقت می‌سازیم
-            if (!currentUser) {
-                currentUser = { username: username, id: null };
-                updateUIForUser();
-            }
             showToast(`Welcome back, ${username}!`);
-            // به جای رفرش کامل، فقط UI را به‌روز می‌کنیم
-            // window.location.reload(); // اختیاری
+            window.location.reload();
         } catch (err) {
             const errorMsg = err.message.includes('Invalid') ? 'Invalid username or password' : 'Login failed';
             showFieldError(loginForm, errorMsg);
@@ -771,7 +622,20 @@ document.querySelectorAll('.category-pill').forEach(p => p.addEventListener('cli
     this.classList.add('category-pill--active');
 }));
 
+// ===== Update Profile Avatar =====
+function updateProfileAvatar(initial) {
+    const container = document.getElementById('profileAvatar');
+    if (container) {
+        if (initial) {
+            container.innerHTML = `<span style="font-weight:700;font-size:1rem;">${escapeHtml(initial)}</span>`;
+        } else {
+            container.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+        }
+    }
+}
+
 // ===== Start =====
+initProfileDropdown();
 fetchCurrentUser();
 
 // ===== Popup from URL =====

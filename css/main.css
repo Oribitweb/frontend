@@ -98,7 +98,7 @@ ul, ol { list-style: none; }
 .header__search-input::placeholder { color: var(--text-secondary); }
 .header__search-btn { padding: 10px 16px; border-radius: 0 40px 40px 0; color: var(--text-secondary); transition: color 0.2s; }
 .header__search-btn:hover { color: var(--accent); }
-.header__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; position: relative; position: relative; }
+.header__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; position: relative; }
 
 /* Create (+) Button */
 .create-container { position: relative; }
