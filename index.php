@@ -101,6 +101,11 @@ include 'includes/sidebar.php';
                 <input type="password" id="signupPassword" placeholder="Create a password" required autocomplete="new-password" minlength="6">
                 <span class="input-group__error"></span>
             </div>
+            <div class="input-group">
+                <label for="signupConfirmPassword">Confirm Password <span class="required">*</span></label>
+                <input type="password" id="signupConfirmPassword" placeholder="Confirm your password" required autocomplete="off">
+                <span class="input-group__error"></span>
+            </div>
             <button type="submit" class="btn btn--primary btn--full">Create Account</button>
         </form>
 
