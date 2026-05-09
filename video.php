@@ -13,9 +13,17 @@ include 'includes/sidebar.php';
                 <canvas id="ambientCanvas" class="ambient-canvas"></canvas>
             </div>
             <div class="player-wrapper" id="playerWrapper">
+                <div class="muted-indicator" id="mutedIndicator">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                        <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/>
+                        <line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span>Muted</span>
+                </div>
                 <div class="video-title-overlay" id="videoTitleOverlay">Sample Video Title</div>
                 <video id="mainVideo" class="main-video" poster="assets/thumbnail.png" preload="metadata">
-                    <source src="assets/vid.mkv" type="video/mp4">
+                    <source src="assets/vid.mp4" type="video/mp4">
                 </video>
                 <div class="custom-controls" id="customControls">
                     <div class="progress-container" id="progressContainer">

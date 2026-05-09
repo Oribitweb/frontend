@@ -81,6 +81,8 @@ include 'includes/sidebar.php';
                 </div>
                 <span class="avatar-upload__label">Choose Avatar</span>
             </div>
+
+
             <div class="input-group">
                 <label for="signupUsername">Username <span class="required">*</span></label>
                 <input type="text" id="signupUsername" placeholder="Choose a username" required autocomplete="username">

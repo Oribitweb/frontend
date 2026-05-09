@@ -39,6 +39,7 @@ const shareTwitter = document.getElementById('shareTwitter');
 const shareFacebook = document.getElementById('shareFacebook');
 const shareReddit = document.getElementById('shareReddit');
 const shareCopyBtn = document.getElementById('shareCopyBtn');
+const mutedIndicator = document.getElementById('mutedIndicator');
 
 // ===== Emoji List =====
 const emojiList = [
@@ -110,6 +111,29 @@ volumeBtn.addEventListener('click', () => {
     if (video.volume > 0) { video.muted = !video.muted; updateVolIcon(); }
     else { video.muted = false; video.volume = 1; volumeSlider.value = 1; updateVolIcon(); }
 });
+let muteFadeTimeout; // برای لغو تأخیر در صورت نیاز
+
+function updateMuteIndicator() {
+    // لغو هر زمان‌بندی قبلی محو شدن
+    clearTimeout(muteFadeTimeout);
+    mutedIndicator.classList.remove('fade-out');
+
+    if (video.muted) {
+        // نمایش فوری نشانگر
+        mutedIndicator.style.display = 'flex';
+        // opacity ممکن است از قبل 0 باشد، بنابراین به 1 برمی‌گردانیم
+        mutedIndicator.style.opacity = '1';
+    } else {
+        // شروع محو شدن با کلاس fade-out
+        mutedIndicator.classList.add('fade-out');
+        // بعد از پایان transition، نشانگر را کاملاً پنهان کن
+        muteFadeTimeout = setTimeout(() => {
+            mutedIndicator.style.display = 'none';
+            mutedIndicator.classList.remove('fade-out'); // پاک‌سازی
+            mutedIndicator.style.opacity = '1'; // برای دفعه بعد
+        }, 0); // باید با زمان transition برابر باشد (0.4s)
+    }
+}
 function updateVolIcon() {
     if (video.muted || video.volume === 0) {
         volOnIcon.style.display = 'none';
@@ -118,11 +142,21 @@ function updateVolIcon() {
         volOnIcon.style.display = 'block';
         volOffIcon.style.display = 'none';
     }
+    updateMuteIndicator(); // ← اضافه شد
 }
 
 fullscreenBtn.addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else playerWrapper.requestFullscreen();
+});
+// Muted indicator click: unmute and restore volume if needed
+mutedIndicator.addEventListener('click', () => {
+    video.muted = false;
+    if (video.volume === 0) {
+        video.volume = 1;
+        volumeSlider.value = 1;
+    }
+    updateVolIcon(); // هم آیکون پایین و هم نشانگر را به‌روز می‌کند (نشانگر شروع به محو شدن می‌کند)
 });
 
 // ===== Like =====
@@ -310,6 +344,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('load', () => {
     video.muted = true;
     video.play().catch(() => {});
+    updateVolIcon(); // ← کلید حل مشکل: آیکون سایلنت + نشانگر Muted فعال شوند
 });
 
 // ===== Toast =====

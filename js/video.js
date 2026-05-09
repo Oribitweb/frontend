@@ -168,6 +168,9 @@ volumeBtn.addEventListener('click', () => {
     if (video.volume > 0) { video.muted = !video.muted; updateVolIcon(); }
     else { video.muted = false; video.volume = 1; volumeSlider.value = 1; updateVolIcon(); }
 });
+
+let muteFadeTimeout;
+
 function updateVolIcon() {
     if (video.muted || video.volume === 0) {
         volOnIcon.style.display = 'none';
@@ -176,7 +179,33 @@ function updateVolIcon() {
         volOnIcon.style.display = 'block';
         volOffIcon.style.display = 'none';
     }
+    updateMuteIndicator(); // ← این خط اضافه شد
 }
+
+function updateMuteIndicator() {
+    clearTimeout(muteFadeTimeout);
+    mutedIndicator.classList.remove('fade-out');
+    if (video.muted) {
+        mutedIndicator.style.display = 'flex';
+        mutedIndicator.style.opacity = '1';
+    } else {
+        mutedIndicator.classList.add('fade-out');
+        muteFadeTimeout = setTimeout(() => {
+            mutedIndicator.style.display = 'none';
+            mutedIndicator.classList.remove('fade-out');
+            mutedIndicator.style.opacity = '1';
+        }, 400);
+    }
+}
+
+mutedIndicator.addEventListener('click', () => {
+    video.muted = false;
+    if (video.volume === 0) {
+        video.volume = 1;
+        volumeSlider.value = 1;
+    }
+    updateVolIcon();
+});
 
 // Speed
 speedBtn.addEventListener('click', () => speedMenu.classList.toggle('active'));

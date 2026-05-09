@@ -88,6 +88,10 @@ ul, ol { list-style: none; }
 .dropdown__item:hover { background: var(--hover-bg); }
 .dropdown__divider { height: 1px; background: var(--border-color); margin: 4px 8px; }
 .dropdown__theme-toggle { display: flex; align-items: center; justify-content: space-between; }
+[data-theme="dark"] .dropdown__theme-icon-dark { display: block; }
+[data-theme="dark"] .dropdown__theme-icon-light { display: none; }
+[data-theme="light"] .dropdown__theme-icon-dark { display: none; }
+[data-theme="light"] .dropdown__theme-icon-light { display: block; }
 
 /* ===== Sidebar ===== */
 .sidebar {
@@ -322,6 +326,39 @@ ul, ol { list-style: none; }
 }
 .save-btn.saved .save-icon { display: none; }
 .save-btn.saved .save-icon-filled { display: block !important; }
+
+/* ====== Muted Indicator ====== */
+.muted-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 20px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 5;
+    transition: opacity 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: none; /* به طور پیش‌فرض پنهان است */
+}
+
+.muted-indicator:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.muted-indicator svg {
+    width: 18px;
+    height: 18px;
+}
 
 /* Description */
 .video-description { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 24px; }

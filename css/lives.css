@@ -88,6 +88,10 @@ ul, ol { list-style: none; }
 .dropdown__item:hover { background: var(--hover-bg); }
 .dropdown__divider { height: 1px; background: var(--border-color); margin: 4px 8px; }
 .dropdown__theme-toggle { display: flex; align-items: center; justify-content: space-between; }
+[data-theme="dark"] .dropdown__theme-icon-dark { display: block; }
+[data-theme="dark"] .dropdown__theme-icon-light { display: none; }
+[data-theme="light"] .dropdown__theme-icon-dark { display: none; }
+[data-theme="light"] .dropdown__theme-icon-light { display: block; }
 
 /* ===== Sidebar ===== */
 .sidebar {
