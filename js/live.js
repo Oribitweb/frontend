@@ -1,3 +1,7 @@
+// ===== متغیرهای سراسری =====
+let gifEmojiList = window.gifEmojis || [];
+const gifEmojiSet = new Set(gifEmojiList);
+
 // ===== DOM Elements =====
 const html = document.documentElement;
 const overlay = document.getElementById('overlay');
@@ -41,10 +45,15 @@ const shareReddit = document.getElementById('shareReddit');
 const shareCopyBtn = document.getElementById('shareCopyBtn');
 const mutedIndicator = document.getElementById('mutedIndicator');
 
-// ===== Emoji List =====
+// ===== Emoji List (PNG/WEBP ثابت) =====
 const emojiList = [
     'happy.png', 'sad.png', 'shocked.png', 'like.png', 'dislike.png',
-    'thank.png', 'angry.png', 'stupid.png', 'ok.png', 'iran.png'
+    'thank.png', 'angry.png', 'stupid.png', 'ok.png', 'iran.png',
+    '01_Pepe_laugh.webp', '02_Pepe_smile.webp', '03_Pepe_cry.webp',
+    '04_Pepe_ostentation.webp', '05_Pepe_sad.webp', '06_Pepe_rage.webp',
+    '07_Pepe_suggestive.webp', '09_Pepe_foreveralone.webp', '10_Pepe_cute.webp',
+    '11_Pepe_malicious.webp', '13_Pepe_anxious.webp', '15_Pepe_ghost.webp', '16_Pepe_joker.webp',
+    '17_Pepe_resistance.webp', '19_Pepe_desolate.webp', '20_Pepe_logan.webp', '21_Pepe_thoughtful.webp'
 ];
 
 // ===== Theme =====
@@ -111,27 +120,21 @@ volumeBtn.addEventListener('click', () => {
     if (video.volume > 0) { video.muted = !video.muted; updateVolIcon(); }
     else { video.muted = false; video.volume = 1; volumeSlider.value = 1; updateVolIcon(); }
 });
-let muteFadeTimeout; // برای لغو تأخیر در صورت نیاز
+let muteFadeTimeout;
 
 function updateMuteIndicator() {
-    // لغو هر زمان‌بندی قبلی محو شدن
     clearTimeout(muteFadeTimeout);
     mutedIndicator.classList.remove('fade-out');
-
     if (video.muted) {
-        // نمایش فوری نشانگر
         mutedIndicator.style.display = 'flex';
-        // opacity ممکن است از قبل 0 باشد، بنابراین به 1 برمی‌گردانیم
         mutedIndicator.style.opacity = '1';
     } else {
-        // شروع محو شدن با کلاس fade-out
         mutedIndicator.classList.add('fade-out');
-        // بعد از پایان transition، نشانگر را کاملاً پنهان کن
         muteFadeTimeout = setTimeout(() => {
             mutedIndicator.style.display = 'none';
-            mutedIndicator.classList.remove('fade-out'); // پاک‌سازی
-            mutedIndicator.style.opacity = '1'; // برای دفعه بعد
-        }, 0); // باید با زمان transition برابر باشد (0.4s)
+            mutedIndicator.classList.remove('fade-out');
+            mutedIndicator.style.opacity = '1';
+        }, 400);
     }
 }
 function updateVolIcon() {
@@ -142,21 +145,20 @@ function updateVolIcon() {
         volOnIcon.style.display = 'block';
         volOffIcon.style.display = 'none';
     }
-    updateMuteIndicator(); // ← اضافه شد
+    updateMuteIndicator();
 }
 
 fullscreenBtn.addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else playerWrapper.requestFullscreen();
 });
-// Muted indicator click: unmute and restore volume if needed
 mutedIndicator.addEventListener('click', () => {
     video.muted = false;
     if (video.volume === 0) {
         video.volume = 1;
         volumeSlider.value = 1;
     }
-    updateVolIcon(); // هم آیکون پایین و هم نشانگر را به‌روز می‌کند (نشانگر شروع به محو شدن می‌کند)
+    updateVolIcon();
 });
 
 // ===== Like =====
@@ -281,12 +283,31 @@ function escapeHtml(unsafe) {
 }
 
 function formatChatText(text) {
-    return escapeHtml(text).replace(/:([a-zA-Z]+):/g, (match, name) => {
-        const filename = name + '.png';
-        if (emojiList.includes(filename)) {
-            return `<img class="emoji-inline" src="assets/emoji/${filename}" alt="${name}">`;
+    return escapeHtml(text).replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
+        // اولویت با GIF
+        const gifFilename = name + '.gif';
+        if (gifEmojiSet.has(gifFilename)) {
+            return `<img class="emoji-inline" src="assets/emoji/gif/${gifFilename}" alt="${name}">`;
         }
-        return match;
+        
+        // سپس PNG/WEBP
+        const pngName = name + '.png';
+        const webpName = name + '.webp';
+        const hasPng = emojiList.includes(pngName);
+        const hasWebp = emojiList.includes(webpName);
+        
+        if (!hasPng && !hasWebp) return match;
+        
+        if (hasPng && hasWebp) {
+            return `<picture>
+                        <source srcset="assets/emoji/${webpName}" type="image/webp">
+                        <img class="emoji-inline" src="assets/emoji/${pngName}" alt="${name}">
+                    </picture>`;
+        } else if (hasWebp) {
+            return `<img class="emoji-inline" src="assets/emoji/${webpName}" alt="${name}">`;
+        } else {
+            return `<img class="emoji-inline" src="assets/emoji/${pngName}" alt="${name}">`;
+        }
     });
 }
 
@@ -318,19 +339,37 @@ chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-// ===== Emoji Menu =====
-emojiList.forEach(filename => {
-    const img = document.createElement('img');
-    img.src = `assets/emoji/${filename}`;
-    img.alt = filename.split('.')[0];
-    img.title = img.alt;
-    img.addEventListener('click', () => {
-        chatInput.value += `:${img.alt}:`;
-        emojiMenu.classList.remove('active');
-        chatInput.focus();
+// ===== Emoji Menu (ساخت خودکار از PNG/WEBP و GIF) =====
+function buildEmojiMenu() {
+    emojiMenu.innerHTML = '';
+    // ایموجی‌های PNG/WEBP
+    emojiList.forEach(filename => {
+        const img = document.createElement('img');
+        img.src = `assets/emoji/${filename}`;
+        img.alt = filename.split('.')[0];
+        img.title = img.alt;
+        img.addEventListener('click', () => {
+            chatInput.value += `:${img.alt}:`;
+            emojiMenu.classList.remove('active');
+            chatInput.focus();
+        });
+        emojiMenu.appendChild(img);
     });
-    emojiMenu.appendChild(img);
-});
+    // ایموجی‌های GIF (خودکار)
+    gifEmojiList.forEach(filename => {
+        const img = document.createElement('img');
+        img.src = `assets/emoji/gif/${filename}`;
+        img.alt = filename.split('.')[0];
+        img.title = img.alt;
+        img.addEventListener('click', () => {
+            chatInput.value += `:${img.alt}:`;
+            emojiMenu.classList.remove('active');
+            chatInput.focus();
+        });
+        emojiMenu.appendChild(img);
+    });
+}
+buildEmojiMenu();
 
 emojiBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -344,7 +383,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('load', () => {
     video.muted = true;
     video.play().catch(() => {});
-    updateVolIcon(); // ← کلید حل مشکل: آیکون سایلنت + نشانگر Muted فعال شوند
+    updateVolIcon();
 });
 
 // ===== Toast =====

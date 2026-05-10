@@ -211,12 +211,30 @@ include 'includes/sidebar.php';
 </div>
 
 <?php include 'includes/footer.php'; ?>
+
+<?php
+// اسکن خودکار پوشه GIF برای ایموجی‌های متحرک
+$gifEmojiDir = 'assets/emoji/gif/';
+$gifFiles = [];
+if (is_dir($gifEmojiDir)) {
+    $files = scandir($gifEmojiDir);
+    foreach ($files as $file) {
+        if (pathinfo($file, PATHINFO_EXTENSION) === 'gif') {
+            $gifFiles[] = $file;
+        }
+    }
+}
+?>
+
 <script>
     // داده‌های دسته‌بندی این استریم (قابل تغییر)
     window.currentStreamCategory = {
         name: "Minecraft",
         viewers: "42K"
     };
+
+    // ایموجی‌های GIF که به صورت خودکار از پوشه خوانده شده‌اند
+    window.gifEmojis = <?php echo json_encode($gifFiles); ?>;
 
     // نمایش خودکار پس از لود صفحه
     document.addEventListener("DOMContentLoaded", function() {
