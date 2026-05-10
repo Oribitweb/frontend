@@ -1,28 +1,32 @@
-// ===== Admin Panel Logic =====
+// ===== Admin Panel Logic (Connected to Backend) =====
 (function() {
-    // ---------------------------------------
-    // Mock Data
-    // ---------------------------------------
-    const usersData = [
-        { id: 1, username: "john_doe", email: "john@example.com", role: "user", status: "active", channel: "John's Channel", handle: "@john", bio: "Just a user", joinDate: "2026-01-15", streamBanned: false },
-        { id: 2, username: "jane_admin", email: "jane@orbit.com", role: "admin", status: "active", channel: "Jane Admin", handle: "@jane", bio: "Administrator", joinDate: "2026-02-20", streamBanned: false },
-        { id: 3, username: "bad_user", email: "bad@spam.com", role: "user", status: "banned", channel: "", handle: "", bio: "", joinDate: "2026-03-05", streamBanned: true },
-        { id: 4, username: "cool_creator", email: "cool@video.com", role: "user", status: "active", channel: "Cool Creations", handle: "@cool", bio: "Making awesome stuff", joinDate: "2026-04-10", streamBanned: false },
-        { id: 5, username: "streamer_pro", email: "stream@live.com", role: "user", status: "active", channel: "Pro Streams", handle: "@pro", bio: "Full time streamer", joinDate: "2026-04-12", streamBanned: false }
-    ];
+    // API Base (same as core.js, or redefine)
+    const API_BASE = 'http://localhost:8000';
 
-    const videosData = [
+    // ---------------------------------------
+    // State
+    // ---------------------------------------
+    let users = [];            // will be fetched from API
+    let videos = [];           // keep mock for now
+    let liveStreams = [];      // keep mock for now
+
+    // Mock data for videos & live (until endpoints are provided)
+    const mockVideos = [
         { id: 101, title: "How to Explore Space", channel: "Channel Name", views: 1200000, uploadDate: "2026-04-01", status: "public", copyright: null },
         { id: 102, title: "ORBIT Platform Overview", channel: "Channel Name", views: 856000, uploadDate: "2026-03-15", status: "public", copyright: null },
         { id: 103, title: "Private Beta Footage", channel: "Secret Lab", views: 3200, uploadDate: "2026-02-28", status: "private", copyright: { type: "copyright-income", description: "Music revenue" } },
         { id: 104, title: "Unlisted Teaser", channel: "Channel Name", views: 45000, uploadDate: "2026-04-05", status: "unlisted", copyright: null }
     ];
-
-    const liveStreamsData = [
+    const mockLiveStreams = [
         { id: 201, title: "Exploring the Cosmos", streamer: "Channel Name", viewers: 12500, uptime: "34 min", ageRestricted: false, chatEnabled: true, copyright: null },
         { id: 202, title: "Late Night Jazz", streamer: "Music Lounge", viewers: 3400, uptime: "1 h 12 min", ageRestricted: false, chatEnabled: true, copyright: null }
     ];
 
+    // Initialize with mock data for videos/live
+    videos = [...mockVideos];
+    liveStreams = [...mockLiveStreams];
+
+    // Notifications (static demo)
     const notifications = [
         { id: 1, icon: "user", text: "New user registered: streamer_pro", time: "5 min ago" },
         { id: 2, icon: "video", text: "Video uploaded: How to Explore Space", time: "15 min ago" },
@@ -31,19 +35,15 @@
         { id: 5, icon: "live", text: "New live stream started: 'Late Night Jazz'", time: "3 hours ago" }
     ];
 
-    let users = [...usersData];
-    let videos = [...videosData];
-    let liveStreams = [...liveStreamsData];
     let currentSection = 'dashboard';
 
+    // DOM elements
     const navItems = document.querySelectorAll('.admin-nav-item');
     const sections = document.querySelectorAll('.admin-section');
-
     const notifBtn = document.getElementById('adminNotifBtn');
     const notifDropdown = document.getElementById('notifDropdown');
     const notifBadge = document.getElementById('notifBadge');
     const notifList = document.getElementById('notifList');
-
     const totalUsersEl = document.getElementById('totalUsers');
     const totalVideosEl = document.getElementById('totalVideos');
     const bannedCountEl = document.getElementById('bannedCount');
@@ -65,7 +65,6 @@
     const banUsername = document.getElementById('banUsername');
     const banDuration = document.getElementById('banDuration');
     const banPermanent = document.getElementById('banPermanent');
-
     const editUserModalOverlay = document.getElementById('editUserModalOverlay');
     const editUserForm = document.getElementById('editUserForm');
     const editUserId = document.getElementById('editUserId');
@@ -76,21 +75,18 @@
     const editChannel = document.getElementById('editChannel');
     const editHandle = document.getElementById('editHandle');
     const editBio = document.getElementById('editBio');
-
     const editVideoModalOverlay = document.getElementById('editVideoModalOverlay');
     const editVideoForm = document.getElementById('editVideoForm');
     const editVideoId = document.getElementById('editVideoId');
     const editVideoTitle = document.getElementById('editVideoTitle');
     const editVideoChannel = document.getElementById('editVideoChannel');
     const editVideoStatus = document.getElementById('editVideoStatus');
-
     const copyrightModalOverlay = document.getElementById('copyrightModalOverlay');
     const copyrightForm = document.getElementById('copyrightForm');
     const copyrightVideoId = document.getElementById('copyrightVideoId');
     const copyrightType = document.getElementById('copyrightType');
     const copyrightDescription = document.getElementById('copyrightDescription');
     const copyrightVideoTitle = document.getElementById('copyrightVideoTitle');
-
     const editLiveModalOverlay = document.getElementById('editLiveModalOverlay');
     const editLiveForm = document.getElementById('editLiveForm');
     const editLiveId = document.getElementById('editLiveId');
@@ -98,14 +94,12 @@
     const editLiveStreamer = document.getElementById('editLiveStreamer');
     const editLiveAgeRestricted = document.getElementById('editLiveAgeRestricted');
     const editLiveChatEnabled = document.getElementById('editLiveChatEnabled');
-
     const liveCopyrightModalOverlay = document.getElementById('liveCopyrightModalOverlay');
     const liveCopyrightForm = document.getElementById('liveCopyrightForm');
     const liveCopyrightStreamId = document.getElementById('liveCopyrightStreamId');
     const liveCopyrightType = document.getElementById('liveCopyrightType');
     const liveCopyrightDescription = document.getElementById('liveCopyrightDescription');
     const liveCopyrightStreamTitle = document.getElementById('liveCopyrightStreamTitle');
-
     const messageModalOverlay = document.getElementById('messageModalOverlay');
     const messageForm = document.getElementById('messageForm');
     const messageStreamId = document.getElementById('messageStreamId');
@@ -133,7 +127,84 @@
          editLiveModalOverlay, liveCopyrightModalOverlay, messageModalOverlay].forEach(m => m.classList.remove('active'));
     }
 
-    // Notification management
+    // ========== API Calls ==========
+    async function fetchUsers() {
+        try {
+            const res = await window.authorizedFetch(`${API_BASE}/api/users/`);
+            if (!res.ok) throw new Error('Failed to fetch users');
+            users = await res.json();
+            return users;
+        } catch (err) {
+            console.error('Fetch users error:', err);
+            showToast('Error loading users');
+            return [];
+        }
+    }
+
+    async function updateUserOnServer(userId, data) {
+        try {
+            const res = await window.authorizedFetch(`${API_BASE}/api/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(errText || 'Update failed');
+            }
+            return await res.json();
+        } catch (err) {
+            console.error('Update user error:', err);
+            showToast('Error updating user: ' + err.message);
+            throw err;
+        }
+    }
+
+    async function deleteUserOnServer(userId) {
+        try {
+            const res = await window.authorizedFetch(`${API_BASE}/api/users/${userId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Delete failed');
+            return true;
+        } catch (err) {
+            console.error('Delete user error:', err);
+            showToast('Error deleting user');
+            throw err;
+        }
+    }
+
+    // ========== Data Loading ==========
+    async function loadUsers() {
+        await fetchUsers();
+        renderUsers();
+        updateDashboard();
+    }
+
+    // fake load for videos/live (until endpoints exist)
+    function loadVideos() {
+        renderVideos();
+        updateDashboard();
+    }
+    function loadLiveStreams() {
+        renderLiveStreams();
+        updateDashboard();
+    }
+
+    // ========== Dashboard ==========
+    function updateDashboard() {
+        if (totalUsersEl) totalUsersEl.textContent = users.length;
+        if (totalVideosEl) totalVideosEl.textContent = videos.length;
+        if (bannedCountEl) bannedCountEl.textContent = users.filter(u => u.status === 'banned').length;
+        if (recentActivityEl) {
+            recentActivityEl.innerHTML = `
+                <tr><td>User registered</td><td>new_user_42</td><td>Just now</td></tr>
+                <tr><td>Video uploaded</td><td>"Space Walk"</td><td>5 min ago</td></tr>
+            `;
+        }
+    }
+
+    // ========== Notifications ==========
     function renderNotifications() {
         const count = notifications.length;
         notifBadge.textContent = count;
@@ -171,11 +242,10 @@
         }).join('');
     }
 
-    function toggleNotifDropdown(e) {
+    notifBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         notifDropdown.classList.toggle('active');
-    }
-    notifBtn.addEventListener('click', toggleNotifDropdown);
+    });
     document.addEventListener('click', (e) => {
         if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
             notifDropdown.classList.remove('active');
@@ -215,19 +285,6 @@
         return `<span class="badge ${classMap[type] || 'badge-copyright-none'}">${labelMap[type] || type}</span>`;
     }
 
-    // ========== Dashboard ==========
-    function updateDashboard() {
-        if (totalUsersEl) totalUsersEl.textContent = users.length;
-        if (totalVideosEl) totalVideosEl.textContent = videos.length;
-        if (bannedCountEl) bannedCountEl.textContent = users.filter(u => u.status === 'banned').length;
-        if (recentActivityEl) {
-            recentActivityEl.innerHTML = `
-                <tr><td>User registered</td><td>new_user_42</td><td>Just now</td></tr>
-                <tr><td>Video uploaded</td><td>"Space Walk"</td><td>5 min ago</td></tr>
-            `;
-        }
-    }
-
     // ========== Users ==========
     function getFilteredUsers() {
         const search = userSearch.value.toLowerCase();
@@ -243,7 +300,6 @@
     function renderUsers() {
         const filtered = getFilteredUsers();
         userTableBody.innerHTML = filtered.map(u => {
-            // Stream ban icon toggles based on status
             const streamBanIcon = u.streamBanned
                 ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>` // Play icon (allow)
                 : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`; // Ban icon
@@ -255,7 +311,7 @@
                     <td><span class="badge badge-${u.role === 'admin' ? 'admin' : 'user'}">${u.role}</span></td>
                     <td><span class="badge badge-${u.status === 'active' ? 'active' : 'banned'}">${u.status}</span></td>
                     <td>${u.streamBanned ? '<span class="badge badge-stream-banned">Stream Banned</span>' : '<span class="badge badge-active">Can Stream</span>'}</td>
-                    <td>${u.joinDate}</td>
+                    <td>${u.joinDate || '–'}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-icon edit-user" data-id="${u.id}" title="Edit user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
@@ -278,15 +334,29 @@
         document.querySelectorAll('.ban-user').forEach(b => b.onclick = () => openBanModal(+b.dataset.id));
         document.querySelectorAll('.unban-user').forEach(b => b.onclick = () => {
             const user = users.find(u => u.id === +b.dataset.id);
-            if (user) { user.status = 'active'; showToast(`${user.username} unbanned.`); renderUsers(); updateDashboard(); }
+            if (user) {
+                user.status = 'active';
+                updateUserOnServer(user.id, { status: 'active' }).then(() => {
+                    showToast(`${user.username} unbanned.`);
+                    renderUsers();
+                    updateDashboard();
+                }).catch(() => {
+                    // revert on error? keep UI as is
+                });
+            }
         });
         document.querySelectorAll('.toggle-stream-ban').forEach(b => {
             b.onclick = () => {
                 const user = users.find(u => u.id === +b.dataset.id);
                 if (user) {
                     user.streamBanned = !user.streamBanned;
-                    showToast(`Stream ${user.streamBanned ? 'disabled' : 'enabled'}.`);
-                    renderUsers();
+                    updateUserOnServer(user.id, { streamBanned: user.streamBanned }).then(() => {
+                        showToast(`Stream ${user.streamBanned ? 'disabled' : 'enabled'}.`);
+                        renderUsers();
+                    }).catch(() => {
+                        user.streamBanned = !user.streamBanned; // revert
+                        renderUsers();
+                    });
                 }
             };
         });
@@ -296,10 +366,12 @@
     }
 
     function deleteUser(id) {
-        users = users.filter(u => u.id !== id);
-        showToast('User deleted.');
-        renderUsers();
-        updateDashboard();
+        deleteUserOnServer(id).then(() => {
+            users = users.filter(u => u.id !== id);
+            showToast('User deleted.');
+            renderUsers();
+            updateDashboard();
+        });
     }
 
     // Ban modal
@@ -321,10 +393,15 @@
         const user = users.find(u => u.id === currentBanUserId);
         if (!user) return;
         user.status = 'banned';
-        showToast(`${user.username} banned.`);
-        closeBanModal();
-        renderUsers();
-        updateDashboard();
+        updateUserOnServer(user.id, { status: 'banned' }).then(() => {
+            showToast(`${user.username} banned.`);
+            closeBanModal();
+            renderUsers();
+            updateDashboard();
+        }).catch(() => {
+            user.status = 'active'; // revert
+            renderUsers();
+        });
     });
 
     // Edit user modal
@@ -349,24 +426,30 @@
         e.preventDefault();
         const user = users.find(u => u.id === currentEditUserId);
         if (!user) return;
-        user.username = editUsername.value;
-        user.email = editEmail.value;
-        user.role = editRole.value;
-        user.status = editStatus.value;
-        user.channel = editChannel.value;
-        user.handle = editHandle.value;
-        user.bio = editBio.value;
-        showToast('User updated.');
-        closeEditUserModal();
-        renderUsers();
-        updateDashboard();
+        const updatedData = {
+            username: editUsername.value,
+            email: editEmail.value,
+            role: editRole.value,
+            status: editStatus.value,
+            channel: editChannel.value,
+            handle: editHandle.value,
+            bio: editBio.value
+        };
+        updateUserOnServer(user.id, updatedData).then(() => {
+            // Update local object
+            Object.assign(user, updatedData);
+            showToast('User updated.');
+            closeEditUserModal();
+            renderUsers();
+            updateDashboard();
+        });
     });
 
     userSearch.addEventListener('input', renderUsers);
     userRoleFilter.addEventListener('change', renderUsers);
     userStatusFilter.addEventListener('change', renderUsers);
 
-    // ========== Videos ==========
+    // ========== Videos (mock for now) ==========
     function getFilteredVideos() {
         const search = videoSearch.value.toLowerCase();
         const status = videoStatusFilter.value;
@@ -445,7 +528,7 @@
     videoSearch.addEventListener('input', renderVideos);
     videoStatusFilter.addEventListener('change', renderVideos);
 
-    // ========== Live Streams ==========
+    // ========== Live Streams (mock) ==========
     function getFilteredLive() {
         const search = liveSearch.value.toLowerCase();
         return liveStreams.filter(s => s.title.toLowerCase().includes(search) || s.streamer.toLowerCase().includes(search));
@@ -512,7 +595,6 @@
         });
     }
 
-    // Edit Live Modal
     function openEditLiveModal(streamId) {
         const stream = liveStreams.find(s => s.id === streamId); if (!stream) return;
         currentEditLiveId = streamId;
@@ -538,7 +620,6 @@
         renderLiveStreams();
     });
 
-    // Live Copyright Modal
     function openLiveCopyrightModal(streamId) {
         const stream = liveStreams.find(s => s.id === streamId); if (!stream) return;
         currentLiveCopyrightId = streamId;
@@ -560,7 +641,6 @@
         renderLiveStreams();
     });
 
-    // Message Modal
     function openMessageModal(streamId) {
         const stream = liveStreams.find(s => s.id === streamId); if (!stream) return;
         messageStreamId.value = streamId;
@@ -584,10 +664,9 @@
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllModals(); });
 
-    // Init
+    // ========== Init ==========
     renderNotifications();
-    updateDashboard();
-    renderUsers();
-    renderVideos();
-    renderLiveStreams();
+    loadUsers();    // Fetch real users from API, then render
+    loadVideos();   // still mock
+    loadLiveStreams(); // still mock
 })();

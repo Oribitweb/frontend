@@ -99,6 +99,8 @@ async function authorizedFetch(url, options = {}) {
     } catch (err) { throw err; }
 }
 
+window.authorizedFetch = authorizedFetch;
+
 async function refreshToken() {
     const res = await fetch(`${API_BASE}/refresh`, { method: 'POST', credentials: 'include' });
     if (!res.ok) throw new Error('Refresh failed');
