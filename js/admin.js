@@ -130,7 +130,7 @@
     // ========== API Calls ==========
     async function fetchUsers() {
         try {
-            const res = await window.authorizedFetch(`${API_BASE}/api/users/`);
+            const res = await window.authorizedFetch(`${API_BASE}users/`);
             if (!res.ok) throw new Error('Failed to fetch users');
             users = await res.json();
             return users;
@@ -143,7 +143,7 @@
 
     async function updateUserOnServer(userId, data) {
         try {
-            const res = await window.authorizedFetch(`${API_BASE}/api/users/${userId}`, {
+            const res = await window.authorizedFetch(`${API_BASE}users/${userId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -162,7 +162,7 @@
 
     async function deleteUserOnServer(userId) {
         try {
-            const res = await window.authorizedFetch(`${API_BASE}/api/users/${userId}`, {
+            const res = await window.authorizedFetch(`${API_BASE}users/${userId}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Delete failed');
