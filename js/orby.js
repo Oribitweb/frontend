@@ -1,6 +1,5 @@
-// orby.js – Orby Donation System for Live Chat
+// orby.js – Orby Donation System with full feature restrictions
 (function() {
-    // Level definitions
     const ORBY_LEVELS = [
         { amount: 30, price: "20,000 T", effect: "none", features: { message: false, emoji: false, gif: false, voice: false }, image: "bronze" },
         { amount: 75, price: "60,000 T", effect: "fire", features: { message: true, emoji: true, gif: false, voice: false }, image: "silver" },
@@ -27,15 +26,14 @@
     const donationAmountTitle = document.getElementById('donationAmountTitle');
     const orbyMessageInput = document.getElementById('orbyMessageInput');
     const orbyEmojiTools = document.getElementById('orbyEmojiTools');
+    const orbyEmojiBtn = document.getElementById('orbyEmojiBtn');
     const orbyGifBtn = document.getElementById('orbyGifBtn');
     const orbyVoiceTool = document.getElementById('orbyVoiceTool');
     const orbyRecordBtn = document.getElementById('orbyRecordBtn');
     const orbyRecordingStatus = document.getElementById('orbyRecordingStatus');
-    const orbyAudioPreview = document.getElementById('orbyAudioPreview');
     const orbyEmojiPicker = document.getElementById('orbyEmojiPicker');
     const orbyEmojiGrid = document.getElementById('orbyEmojiGrid');
 
-    // Helper: Show toast
     function showToast(msg) {
         const container = document.getElementById('toastContainer');
         if (!container) return;
@@ -60,10 +58,10 @@
                     <div class="level-icon" style="background-image: url('${imagePath}');"></div>
                     <div class="level-amount">${level.amount} Orby</div>
                     <div class="level-price">${level.price}</div>
-                    <div class="level-feature">${level.features.message ? '📝 Message' : ''}</div>
-                    <div class="level-feature">${level.features.emoji ? '😀 Emoji' : ''}</div>
-                    <div class="level-feature">${level.features.gif ? '🎞️ GIF' : ''}</div>
-                    <div class="level-feature">${level.features.voice ? '🎙️ Voice note' : ''}</div>
+                    <div class="level-feature">${level.features.message ? '📝 Message' : '🔇 No message'}</div>
+                    <div class="level-feature">${level.features.emoji ? '😀 Emoji' : '🚫 No emoji'}</div>
+                    <div class="level-feature">${level.features.gif ? '🎞️ GIF' : '🚫 No GIF'}</div>
+                    <div class="level-feature">${level.features.voice ? '🎙️ Voice note' : '🚫 No voice'}</div>
                 </div>
             `;
         }).join('');
@@ -81,23 +79,40 @@
         currentSelectedLevel = level;
         selectionOverlay.classList.remove('active');
         
-        // Show donation modal if message is allowed
         donationAmountTitle.textContent = `Send ${level.amount} Orby`;
-        orbyMessageInput.value = '';
-        // Reset tools
-        orbyEmojiTools.style.display = level.features.message ? 'flex' : 'none';
-        orbyGifBtn.style.display = level.features.gif ? 'inline-flex' : 'none';
-        orbyVoiceTool.style.display = level.features.voice ? 'block' : 'none';
-        recordedBlob = null;
-        if (orbyAudioPreview) {
-            orbyAudioPreview.style.display = 'none';
-            orbyAudioPreview.src = '';
+        
+        // Handle message input
+        if (level.features.message) {
+            orbyMessageInput.disabled = false;
+            orbyMessageInput.placeholder = "Write a message to the streamer...";
+            orbyMessageInput.value = '';
+        } else {
+            orbyMessageInput.disabled = true;
+            orbyMessageInput.placeholder = "Messages not allowed for this level";
+            orbyMessageInput.value = '';
         }
+        
+        // Show/hide emoji tools container (only if either emoji or gif is allowed)
+        const showTools = level.features.emoji || level.features.gif;
+        orbyEmojiTools.style.display = showTools ? 'flex' : 'none';
+        
+        // Individual buttons
+        if (orbyEmojiBtn) orbyEmojiBtn.style.display = level.features.emoji ? 'inline-flex' : 'none';
+        if (orbyGifBtn) orbyGifBtn.style.display = level.features.gif ? 'inline-flex' : 'none';
+        
+        // Voice tools
+        orbyVoiceTool.style.display = level.features.voice ? 'block' : 'none';
+        
+        // Reset recorded voice
+        recordedBlob = null;
+        const existingPreview = document.getElementById('orbyAudioPreview');
+        if (existingPreview) existingPreview.remove();
         if (orbyRecordingStatus) orbyRecordingStatus.textContent = '';
+        
         donationModal.classList.add('active');
     }
 
-    // Effect functions
+    // Visual effects (unchanged)
     function triggerEffect(level) {
         const effect = level.effect;
         const canvas = document.createElement('canvas');
@@ -108,15 +123,11 @@
         canvas.height = window.innerHeight;
         
         if (effect === 'fire') {
-            // Fire particles
             let particles = [];
             for (let i = 0; i < 80; i++) {
                 particles.push({
-                    x: Math.random() * canvas.width,
-                    y: canvas.height - Math.random() * 100,
-                    radius: Math.random() * 8 + 2,
-                    vx: (Math.random() - 0.5) * 2,
-                    vy: -Math.random() * 5 - 2,
+                    x: Math.random() * canvas.width, y: canvas.height - Math.random() * 100,
+                    radius: Math.random() * 8 + 2, vx: (Math.random() - 0.5) * 2, vy: -Math.random() * 5 - 2,
                     color: `hsl(${Math.random() * 30 + 20}, 100%, 60%)`
                 });
             }
@@ -124,14 +135,10 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 let alive = false;
                 particles.forEach(p => {
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.vy += 0.2;
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.2;
                     if (p.y < canvas.height && p.y > 0) alive = true;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = p.color;
-                    ctx.fill();
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.fill();
                 });
                 if (alive) requestAnimationFrame(drawFire);
                 else canvas.remove();
@@ -139,125 +146,159 @@
             drawFire();
             setTimeout(() => canvas.remove(), 2000);
         } else if (effect === 'explosion') {
-            // Explosion burst
             for (let i = 0; i < 150; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = Math.random() * 12 + 2;
-                const x = canvas.width / 2;
-                const y = canvas.height / 2;
-                let vx = Math.cos(angle) * speed;
-                let vy = Math.sin(angle) * speed;
+                let vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
                 let life = 1;
-                const particle = document.createElement('div');
-                particle.style.position = 'fixed';
-                particle.style.width = '6px';
-                particle.style.height = '6px';
-                particle.style.backgroundColor = `hsl(${Math.random() * 360}, 80%, 60%)`;
-                particle.style.borderRadius = '50%';
-                particle.style.left = x + 'px';
-                particle.style.top = y + 'px';
-                particle.style.pointerEvents = 'none';
-                document.body.appendChild(particle);
+                const div = document.createElement('div');
+                div.style.cssText = `position:fixed;width:6px;height:6px;background:hsl(${Math.random()*360},80%,60%);border-radius:50%;left:${canvas.width/2}px;top:${canvas.height/2}px;pointer-events:none;`;
+                document.body.appendChild(div);
                 function move() {
-                    if (life <= 0) { particle.remove(); return; }
+                    if (life <= 0) { div.remove(); return; }
                     life -= 0.03;
-                    const newX = parseFloat(particle.style.left) + vx;
-                    const newY = parseFloat(particle.style.top) + vy;
-                    particle.style.left = newX + 'px';
-                    particle.style.top = newY + 'px';
-                    particle.style.opacity = life;
+                    div.style.left = (parseFloat(div.style.left) + vx) + 'px';
+                    div.style.top = (parseFloat(div.style.top) + vy) + 'px';
+                    div.style.opacity = life;
                     requestAnimationFrame(move);
                 }
                 move();
             }
             setTimeout(() => canvas.remove(), 1000);
         } else if (effect === 'money') {
-            // Coin rain
             for (let i = 0; i < 60; i++) {
                 const coin = document.createElement('div');
                 coin.innerHTML = '💰';
-                coin.style.position = 'fixed';
-                coin.style.fontSize = '24px';
-                coin.style.left = Math.random() * canvas.width + 'px';
-                coin.style.top = '-30px';
-                coin.style.pointerEvents = 'none';
-                coin.style.opacity = '0.8';
+                coin.style.cssText = `position:fixed;font-size:24px;left:${Math.random()*canvas.width}px;top:-30px;pointer-events:none;opacity:0.8;`;
                 document.body.appendChild(coin);
                 let y = -30;
-                function fall() {
-                    y += 5;
-                    coin.style.top = y + 'px';
-                    if (y < canvas.height + 30) requestAnimationFrame(fall);
-                    else coin.remove();
-                }
+                function fall() { y += 5; coin.style.top = y + 'px'; if (y < canvas.height+30) requestAnimationFrame(fall); else coin.remove(); }
                 fall();
             }
             setTimeout(() => canvas.remove(), 3000);
         } else {
-            // None or default just remove canvas
             canvas.remove();
         }
     }
 
-    // Send Orby donation
-    async function sendDonation() {
-        if (!currentSelectedLevel) return;
-        const message = orbyMessageInput.value.trim();
-        let extraHtml = '';
-        let voiceUrl = null;
-        if (recordedBlob && currentSelectedLevel.features.voice) {
-            voiceUrl = URL.createObjectURL(recordedBlob);
-            extraHtml += `<div style="margin-top: 8px;"><audio controls src="${voiceUrl}" style="max-width: 200px;"></audio></div>`;
+    // Emoji formatting – only if allowed by level features
+    function replaceEmojis(text, gifSet, staticMap, allowEmoji, allowGif) {
+        if (!allowEmoji && !allowGif) return text;
+        return text.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
+            const gifFile = name + '.gif';
+            if (allowGif && gifSet.has(gifFile)) {
+                return `<img class="emoji-inline" src="assets/emoji/gif/${gifFile}" alt="${name}">`;
+            }
+            if (allowEmoji && staticMap.has(name)) {
+                const ext = staticMap.get(name);
+                if (ext === 'webp') {
+                    return `<img class="emoji-inline" src="assets/emoji/${name}.webp" alt="${name}">`;
+                } else {
+                    return `<img class="emoji-inline" src="assets/emoji/${name}.png" alt="${name}">`;
+                }
+            }
+            return match;
+        });
+    }
+
+    function loadStaticEmojiMap() {
+        const staticNames = ['happy','sad','shocked','like','dislike','thank','angry','stupid','ok','iran'];
+        const map = new Map();
+        staticNames.forEach(name => map.set(name, 'png'));
+        return map;
+    }
+
+    function addOrbyMessage(username, amount, messageText, extraHtml, gifSet, staticMap, allowEmoji, allowGif) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-message orby-message';
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let formattedText = replaceEmojis(messageText, gifSet, staticMap, allowEmoji, allowGif);
+        msgDiv.innerHTML = `
+            <div class="chat-avatar">${escapeHtml(username[0])}</div>
+            <div class="chat-content">
+                <div><span class="chat-author">${escapeHtml(username)}</span><span class="chat-time"> ${now}</span></div>
+                <div class="chat-text">${formattedText}</div>
+                ${extraHtml || ''}
+            </div>
+        `;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Custom voice player (SVG buttons)
+    function createCustomVoicePlayer(blob) {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        const container = document.createElement('div');
+        container.className = 'orby-voice-player';
+        container.innerHTML = `
+            <button class="voice-play-btn">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+            </button>
+            <div class="voice-progress"><div class="voice-progress-fill"></div></div>
+            <span class="voice-time">0:00 / 0:00</span>
+        `;
+        const playBtn = container.querySelector('.voice-play-btn');
+        const progressFill = container.querySelector('.voice-progress-fill');
+        const timeSpan = container.querySelector('.voice-time');
+        let isPlaying = false;
+        let interval;
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
         }
-        // Build chat message
-        const username = (window.currentUser && window.currentUser.username) ? window.currentUser.username : 'Anonymous';
-        const amount = currentSelectedLevel.amount;
-        let messageText = `${username} sent ${amount} Orby! 🎉`;
-        if (message) {
-            messageText += `\n💬 ${message}`;
-        }
-        // Call existing addChatMessage from live.js if available, else simulate
-        if (typeof addChatMessage === 'function') {
-            addChatMessage(username, messageText, true, extraHtml);
-        } else {
-            // Fallback direct DOM insert
-            const chatMessages = document.getElementById('chatMessages');
-            if (chatMessages) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message orby-message';
-                const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                msgDiv.innerHTML = `
-                    <div class="chat-avatar">${username[0]}</div>
-                    <div class="chat-content">
-                        <div><span class="chat-author">${escapeHtml(username)}</span><span class="chat-time"> ${now}</span></div>
-                        <div class="chat-text">${escapeHtml(messageText)}</div>
-                        ${extraHtml}
-                    </div>
-                `;
-                chatMessages.appendChild(msgDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+        function updateProgress() {
+            if (audio.duration) {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progressFill.style.width = percent + '%';
+                timeSpan.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
             }
         }
-        // Trigger effect
-        triggerEffect(currentSelectedLevel);
-        showToast(`You sent ${amount} Orby! Thank you for supporting.`);
-        // Close modal and cleanup
-        donationModal.classList.remove('active');
-        currentSelectedLevel = null;
-        if (voiceUrl) URL.revokeObjectURL(voiceUrl);
-        recordedBlob = null;
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                audio.pause();
+                playBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+                isPlaying = false;
+                clearInterval(interval);
+            } else {
+                audio.play();
+                playBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                isPlaying = true;
+                interval = setInterval(updateProgress, 200);
+            }
+        });
+        audio.addEventListener('ended', () => {
+            playBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+            isPlaying = false;
+            clearInterval(interval);
+            progressFill.style.width = '0%';
+            timeSpan.textContent = `0:00 / ${formatTime(audio.duration)}`;
+        });
+        audio.addEventListener('loadedmetadata', () => {
+            timeSpan.textContent = `0:00 / ${formatTime(audio.duration)}`;
+        });
+        return container;
     }
 
     // Voice recording
     function setupVoiceRecording() {
         if (!orbyRecordBtn) return;
         orbyRecordBtn.addEventListener('click', async () => {
+            if (!currentSelectedLevel || !currentSelectedLevel.features.voice) {
+                showToast('Voice notes not allowed for this level');
+                return;
+            }
             if (isRecording) {
-                // Stop recording
                 if (mediaRecorder && mediaRecorder.state === 'recording') {
                     mediaRecorder.stop();
                     isRecording = false;
-                    orbyRecordBtn.textContent = '🎙️ Record Voice (max 30s)';
+                    orbyRecordBtn.innerHTML = '🎙️ Record Voice (max 30s)';
                     orbyRecordingStatus.textContent = 'Recording stopped.';
                 }
                 return;
@@ -266,65 +307,88 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
-                };
+                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
                 mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                     recordedBlob = audioBlob;
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    orbyAudioPreview.src = audioUrl;
-                    orbyAudioPreview.style.display = 'block';
+                    const oldPreview = document.getElementById('orbyAudioPreview');
+                    if (oldPreview) oldPreview.remove();
+                    const previewDiv = document.createElement('div');
+                    previewDiv.id = 'orbyAudioPreview';
+                    previewDiv.appendChild(createCustomVoicePlayer(audioBlob));
+                    orbyVoiceTool.appendChild(previewDiv);
                     orbyRecordingStatus.textContent = 'Voice recorded!';
                     stream.getTracks().forEach(track => track.stop());
                 };
                 mediaRecorder.start();
                 isRecording = true;
-                orbyRecordBtn.textContent = '⏹️ Stop Recording';
+                orbyRecordBtn.innerHTML = '⏹️ Stop Recording';
                 orbyRecordingStatus.textContent = 'Recording... max 30s';
                 setTimeout(() => {
                     if (mediaRecorder && mediaRecorder.state === 'recording') {
                         mediaRecorder.stop();
                         isRecording = false;
-                        orbyRecordBtn.textContent = '🎙️ Record Voice (max 30s)';
+                        orbyRecordBtn.innerHTML = '🎙️ Record Voice (max 30s)';
                         orbyRecordingStatus.textContent = 'Recording timed out (30s).';
                     }
                 }, 30000);
             } catch (err) {
-                console.error('Microphone error:', err);
-                showToast('Could not access microphone.');
+                console.error(err);
+                showToast('Microphone access denied.');
             }
         });
     }
 
-    // Emoji picker for Orby
+    // Emoji Picker (static + gif) – only shown when allowed
     function buildOrbyEmojiPicker() {
-        const emojiList = [
-            'happy.png', 'sad.png', 'shocked.png', 'like.png', 'dislike.png',
-            'thank.png', 'angry.png', 'stupid.png', 'ok.png', 'iran.png'
-        ];
+        const staticNames = ['happy','sad','shocked','like','dislike','thank','angry','stupid','ok','iran'];
         const gifEmojis = window.gifEmojis || [];
-        const allItems = [...emojiList.map(f => ({ type: 'static', file: f, name: f.split('.')[0] })),
-                          ...gifEmojis.map(f => ({ type: 'gif', file: f, name: f.split('.')[0] }))];
-        orbyEmojiGrid.innerHTML = allItems.map(item => {
-            let src = `assets/emoji/${item.file}`;
-            if (item.type === 'gif') src = `assets/emoji/gif/${item.file}`;
-            return `<img src="${src}" alt="${item.name}" title="${item.name}" data-name="${item.name}">`;
-        }).join('');
-        document.querySelectorAll('#orbyEmojiGrid img').forEach(img => {
+        orbyEmojiGrid.innerHTML = '';
+        staticNames.forEach(name => {
+            const img = document.createElement('img');
+            img.src = `assets/emoji/${name}.png`;
+            img.alt = name;
+            img.title = name;
+            img.dataset.name = name;
             img.addEventListener('click', () => {
-                const name = img.dataset.name;
+                if (currentSelectedLevel && !currentSelectedLevel.features.emoji) {
+                    showToast('Emojis not allowed for this level');
+                    return;
+                }
                 orbyMessageInput.value += `:${name}:`;
                 orbyEmojiPicker.classList.remove('active');
+                orbyMessageInput.focus();
             });
+            orbyEmojiGrid.appendChild(img);
+        });
+        gifEmojis.forEach(gifFile => {
+            const name = gifFile.split('.')[0];
+            const img = document.createElement('img');
+            img.src = `assets/emoji/gif/${gifFile}`;
+            img.alt = name;
+            img.title = name;
+            img.dataset.name = name;
+            img.addEventListener('click', () => {
+                if (currentSelectedLevel && !currentSelectedLevel.features.gif) {
+                    showToast('GIF emojis not allowed for this level');
+                    return;
+                }
+                orbyMessageInput.value += `:${name}:`;
+                orbyEmojiPicker.classList.remove('active');
+                orbyMessageInput.focus();
+            });
+            orbyEmojiGrid.appendChild(img);
         });
     }
 
-    // Open emoji picker
     function initOrbyEmojiTools() {
-        const emojiBtnEl = document.getElementById('orbyEmojiBtn');
-        if (emojiBtnEl) {
-            emojiBtnEl.addEventListener('click', () => {
+        if (orbyEmojiBtn) {
+            orbyEmojiBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (currentSelectedLevel && !currentSelectedLevel.features.emoji) {
+                    showToast('Emojis not allowed for this level');
+                    return;
+                }
                 orbyEmojiPicker.classList.toggle('active');
             });
         }
@@ -333,44 +397,84 @@
         });
         if (orbyGifBtn) {
             orbyGifBtn.addEventListener('click', () => {
+                if (currentSelectedLevel && !currentSelectedLevel.features.gif) {
+                    showToast('GIF emojis not allowed for this level');
+                    return;
+                }
                 orbyEmojiPicker.classList.toggle('active');
             });
         }
+        document.addEventListener('click', (e) => {
+            if (!orbyEmojiPicker.contains(e.target) && e.target !== orbyEmojiBtn && e.target !== orbyGifBtn) {
+                orbyEmojiPicker.classList.remove('active');
+            }
+        });
         buildOrbyEmojiPicker();
     }
 
-    // Escape HTML
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, m => (m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'));
+    // Send donation
+    async function sendDonation() {
+        if (!currentSelectedLevel) return;
+        
+        // If message not allowed, ignore any input
+        let message = '';
+        if (currentSelectedLevel.features.message) {
+            message = orbyMessageInput.value.trim();
+        } else {
+            message = '';
+        }
+        
+        let extraHtml = '';
+        if (recordedBlob && currentSelectedLevel.features.voice) {
+            const voiceContainer = createCustomVoicePlayer(recordedBlob);
+            extraHtml = '<div style="margin-top:8px;"></div>';
+            extraHtml += voiceContainer.outerHTML;
+        } else if (recordedBlob && !currentSelectedLevel.features.voice) {
+            showToast('Voice notes not allowed for this level. Voice will not be sent.');
+            recordedBlob = null;
+        }
+        
+        const username = (window.currentUser && window.currentUser.username) ? window.currentUser.username : 'Anonymous';
+        const amount = currentSelectedLevel.amount;
+        let fullMessage = `${username} sent ${amount} Orby! 🎉`;
+        if (message) fullMessage += `\n💬 ${message}`;
+
+        const gifSet = new Set((window.gifEmojis || []).map(f => f));
+        const staticMap = loadStaticEmojiMap();
+        const allowEmoji = currentSelectedLevel.features.emoji;
+        const allowGif = currentSelectedLevel.features.gif;
+        
+        addOrbyMessage(username, amount, fullMessage, extraHtml, gifSet, staticMap, allowEmoji, allowGif);
+        triggerEffect(currentSelectedLevel);
+        showToast(`You sent ${amount} Orby! Thank you.`);
+        
+        donationModal.classList.remove('active');
+        currentSelectedLevel = null;
+        recordedBlob = null;
+        const oldPreview = document.getElementById('orbyAudioPreview');
+        if (oldPreview) oldPreview.remove();
+        orbyMessageInput.value = '';
+        orbyMessageInput.disabled = false;
     }
 
-    // Event listeners
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+    }
+
     function init() {
         buildLevelCards();
-        orbyBtn.addEventListener('click', () => {
-            selectionOverlay.classList.add('active');
-        });
-        closeSelectionBtn.addEventListener('click', () => {
-            selectionOverlay.classList.remove('active');
-        });
+        orbyBtn.addEventListener('click', () => selectionOverlay.classList.add('active'));
+        closeSelectionBtn.addEventListener('click', () => selectionOverlay.classList.remove('active'));
         modalClose.addEventListener('click', () => donationModal.classList.remove('active'));
         cancelBtn.addEventListener('click', () => donationModal.classList.remove('active'));
         confirmBtn.addEventListener('click', sendDonation);
         setupVoiceRecording();
         initOrbyEmojiTools();
-        // Close overlay on outside click
-        selectionOverlay.addEventListener('click', (e) => {
-            if (e.target === selectionOverlay) selectionOverlay.classList.remove('active');
-        });
-        donationModal.addEventListener('click', (e) => {
-            if (e.target === donationModal) donationModal.classList.remove('active');
-        });
+        selectionOverlay.addEventListener('click', (e) => { if (e.target === selectionOverlay) selectionOverlay.classList.remove('active'); });
+        donationModal.addEventListener('click', (e) => { if (e.target === donationModal) donationModal.classList.remove('active'); });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
 })();

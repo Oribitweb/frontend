@@ -130,7 +130,7 @@ include 'includes/sidebar.php';
             <!-- Orby Button -->
             <button class="orby-btn" id="orbyBtn" title="Send Orby">
                 <img src="assets/img/orby/orby.png" alt="Orby" width="22" height="22">
-                <span>Orby</span>
+                <span>ORBY</span>
             </button>
             <input type="text" class="chat-input" id="chatInput" placeholder="Say something..." maxlength="200">
             <button class="send-btn" id="sendMessageBtn" aria-label="Send">
@@ -231,7 +231,11 @@ include 'includes/sidebar.php';
     <div class="orby-donation-panel">
         <div class="orby-donation-header">
             <h4 id="donationAmountTitle">Send 75 Orby</h4>
-            <button class="orby-modal-close" id="orbyModalCloseBtn">&times;</button>
+            <button class="orby-modal-close" id="orbyModalCloseBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
         </div>
         <div class="orby-donation-body">
             <div class="orby-message-area">
