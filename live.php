@@ -1,6 +1,6 @@
 <?php
 $pageTitle = "ORBIT — Live Stream";
-$extraCSS = '<link rel="stylesheet" href="css/live.css">';
+$extraCSS = '<link rel="stylesheet" href="css/live.css"><link rel="stylesheet" href="css/orby.css">';
 $logoImg = 'assets/img/logolive.png';
 $activePage = 'Live';
 include 'includes/header.php';
@@ -127,6 +127,11 @@ include 'includes/sidebar.php';
             <button class="emoji-btn" id="emojiBtn" aria-label="Emoji">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
             </button>
+            <!-- Orby Button -->
+            <button class="orby-btn" id="orbyBtn" title="Send Orby">
+                <img src="assets/img/orby/orby.png" alt="Orby" width="22" height="22">
+                <span>Orby</span>
+            </button>
             <input type="text" class="chat-input" id="chatInput" placeholder="Say something..." maxlength="200">
             <button class="send-btn" id="sendMessageBtn" aria-label="Send">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-12z"/></svg>
@@ -210,10 +215,59 @@ include 'includes/sidebar.php';
     </div>
 </div>
 
+<!-- ========== ORBY DONATION MODALS ========== -->
+<!-- Orby Selection Menu (hidden by default) -->
+<div class="orby-selection-overlay" id="orbySelectionOverlay">
+    <div class="orby-selection-panel">
+        <h3>💎 Send Orby</h3>
+        <p>Choose your Orby amount</p>
+        <div class="orby-levels-grid" id="orbyLevelsGrid"></div>
+        <button class="orby-close-btn" id="orbyCloseBtn">Close</button>
+    </div>
+</div>
+
+<!-- Orby Donation Modal (for message/voice/emoji) -->
+<div class="orby-donation-modal" id="orbyDonationModal">
+    <div class="orby-donation-panel">
+        <div class="orby-donation-header">
+            <h4 id="donationAmountTitle">Send 75 Orby</h4>
+            <button class="orby-modal-close" id="orbyModalCloseBtn">&times;</button>
+        </div>
+        <div class="orby-donation-body">
+            <div class="orby-message-area">
+                <label>Your message (optional)</label>
+                <textarea id="orbyMessageInput" rows="3" placeholder="Write a message to the streamer..."></textarea>
+                <div class="orby-emoji-tools" id="orbyEmojiTools" style="display: none;">
+                    <button id="orbyEmojiBtn" class="orby-tool-btn">😀 Add Emoji</button>
+                    <button id="orbyGifBtn" class="orby-tool-btn" style="display: none;">🎞️ Add GIF</button>
+                </div>
+                <div class="orby-voice-tool" id="orbyVoiceTool" style="display: none;">
+                    <button id="orbyRecordBtn" class="orby-tool-btn">🎙️ Record Voice (max 30s)</button>
+                    <div id="orbyRecordingStatus" class="orby-recording-status"></div>
+                    <audio id="orbyAudioPreview" controls style="display: none; width: 100%; margin-top: 8px;"></audio>
+                </div>
+            </div>
+        </div>
+        <div class="orby-donation-footer">
+            <button id="orbyConfirmBtn" class="orby-confirm-btn">Send Orby</button>
+            <button id="orbyCancelBtn" class="orby-cancel-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden emoji picker for Orby -->
+<div class="orby-emoji-picker" id="orbyEmojiPicker">
+    <div class="orby-emoji-header">
+        <span>Pick an emoji</span>
+        <button id="orbyEmojiPickerClose">&times;</button>
+    </div>
+    <div class="orby-emoji-grid" id="orbyEmojiGrid"></div>
+</div>
+
 <?php include 'includes/footer.php'; ?>
 
 <?php
-// اسکن خودکار پوشه GIF برای ایموجی‌های متحرک
+// Scan GIF emojis
 $gifEmojiDir = 'assets/emoji/gif/';
 $gifFiles = [];
 if (is_dir($gifEmojiDir)) {
@@ -227,22 +281,14 @@ if (is_dir($gifEmojiDir)) {
 ?>
 
 <script>
-    // داده‌های دسته‌بندی این استریم (قابل تغییر)
-    window.currentStreamCategory = {
-        name: "Minecraft",
-        viewers: "42K"
-    };
-
-    // ایموجی‌های GIF که به صورت خودکار از پوشه خوانده شده‌اند
+    window.currentStreamCategory = { name: "Minecraft", viewers: "42K" };
     window.gifEmojis = <?php echo json_encode($gifFiles); ?>;
-
-    // نمایش خودکار پس از لود صفحه
+    
     document.addEventListener("DOMContentLoaded", function() {
         const cat = window.currentStreamCategory;
         const nameEl = document.getElementById('categoryName');
         const viewersEl = document.getElementById('categoryViewers');
         const imgEl = document.getElementById('categoryImage');
-
         if (nameEl && cat.name) nameEl.textContent = cat.name;
         if (viewersEl && cat.viewers) viewersEl.textContent = cat.viewers + " viewers";
         if (imgEl && cat.name) {
@@ -252,5 +298,6 @@ if (is_dir($gifEmojiDir)) {
     });
 </script>
 <script src="js/live.js"></script>
+<script src="js/orby.js"></script>
 </body>
 </html>
