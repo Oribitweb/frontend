@@ -59,10 +59,41 @@ include 'includes/sidebar.php';
         <section class="admin-section" id="section-users">
             <div class="admin-search">
                 <input type="text" class="admin-search-input" id="userSearch" placeholder="Search users...">
-                <select class="filter-select" id="userRoleFilter"><option value="all">All Roles</option><option value="user">User</option><option value="admin">Admin</option></select>
-                <select class="filter-select" id="userStatusFilter"><option value="all">All Status</option><option value="active">Active</option><option value="banned">Banned</option></select>
+                <select class="filter-select" id="userRoleFilter">
+                    <option value="all">All Roles</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <select class="filter-select" id="userStatusFilter">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="banned">Banned</option>
+                </select>
             </div>
-            <div class="table-container"><table><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Streaming</th><th>Joined</th><th>Actions</th></tr></thead><tbody id="userTableBody"></tbody></table></div>
+            
+            <!-- Add results count -->
+            <div id="resultsCount" style="margin: 8px 0; color: var(--text-secondary); font-size: 0.9rem;"></div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Streaming</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
+            
+            <!-- Add pagination container -->
+            <div id="pagination" style="margin-top: 16px; display: flex; justify-content: center; gap: 8px;"></div>
         </section>
 
         <!-- Videos -->
@@ -80,6 +111,7 @@ include 'includes/sidebar.php';
             <div class="table-container"><table><thead><tr><th>ID</th><th>Title</th><th>Streamer</th><th>Viewers</th><th>Uptime</th><th>Restriction</th><th>Actions</th></tr></thead><tbody id="liveTableBody"></tbody></table></div>
         </section>
     </div>
+    <div id="toastContainer" style="position:fixed; bottom:24px; right:24px; z-index:10000; display:flex; flex-direction:column; gap:8px;"></div>
 </main>
 
 <!-- Ban Modal -->
@@ -106,4 +138,4 @@ include 'includes/sidebar.php';
 <?php include 'includes/footer.php'; ?>
 <script src="js/admin.js"></script>
 </body>
-</html>
+</html> 

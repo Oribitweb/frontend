@@ -1,14 +1,13 @@
 // ===== Admin Panel Logic (Connected to Backend) =====
 (function() {
-    // API Base (same as core.js, or redefine)
+    // API Base
     const API_BASE = 'http://localhost:8000';
 
     // ---------------------------------------
     // State
     // ---------------------------------------
-    let users = [];            // will be fetched from API
-    let videos = [];           // keep mock for now
-    let liveStreams = [];      // keep mock for now
+    let videos = [];
+    let liveStreams = [];
 
     // Mock data for videos & live (until endpoints are provided)
     const mockVideos = [
@@ -34,6 +33,19 @@
         { id: 4, icon: "ban", text: "bad_user was permanently banned", time: "2 hours ago" },
         { id: 5, icon: "live", text: "New live stream started: 'Late Night Jazz'", time: "3 hours ago" }
     ];
+
+    // State management for users (replaces the old `users` array)
+    let usersState = {
+        data: [],
+        total: 0,
+        page: 1,
+        perPage: 20,
+        totalPages: 0,
+        search: '',
+        roleFilter: 'all',
+        statusFilter: 'all',
+        isLoading: false
+    };
 
     let currentSection = 'dashboard';
 
@@ -113,6 +125,11 @@
     let currentEditLiveId = null;
     let currentLiveCopyrightId = null;
 
+    // Helper: find a user in usersState.data
+    function findUserById(id) {
+        return usersState.data.find(u => u.id === id);
+    }
+
     // Helper: Toast
     function showToast(msg) {
         const t = document.createElement('div');
@@ -128,25 +145,193 @@
     }
 
     // ========== API Calls ==========
-    async function fetchUsers() {
+    async function fetchUsers(params = {}) {
+        if (usersState.isLoading) return;
+        
+        usersState.isLoading = true;
+        showSkeletonLoader('userTableBody');
+        
         try {
-            const res = await window.authorizedFetch(`${API_BASE}/users/`);
+            const queryString = new URLSearchParams();
+            
+            // Search parameters
+            const searchVal = params.search !== undefined ? params.search : usersState.search;
+            if (searchVal) {
+                queryString.append('search', searchVal);
+            }
+            
+            // Status filter
+            const statusFilter = params.is_active !== undefined ? params.is_active : usersState.statusFilter;
+            if (statusFilter && statusFilter !== 'all') {
+                queryString.append('is_active', statusFilter === 'active');
+            }
+            
+            // Role filter
+            const roleFilter = params.role !== undefined ? params.role : usersState.roleFilter;
+            if (roleFilter && roleFilter !== 'all') {
+                queryString.append('role', roleFilter);
+            }
+            
+            // Pagination
+            queryString.append('page', params.page || usersState.page);
+            queryString.append('per_page', usersState.perPage);
+            
+            const url = `${API_BASE}/users/${queryString.toString() ? '?' + queryString.toString() : ''}`;
+            const res = await window.authorizedFetch(url);
+            
             if (!res.ok) throw new Error('Failed to fetch users');
-            users = await res.json();
-            return users;
+            
+            const response = await res.json();
+            
+            // Handle both paginated and non-paginated responses
+            if (response.users) {
+                usersState.data = response.users;
+                usersState.total = response.total;
+                usersState.page = response.page;
+                usersState.totalPages = response.total_pages;
+                usersState.perPage = response.per_page;
+            } else if (Array.isArray(response)) {
+                // Legacy non-paginated response (array)
+                usersState.data = response;
+                usersState.total = response.length;
+                usersState.totalPages = 1;
+            } else {
+                // Unexpected response
+                console.error('Unexpected API response:', response);
+                usersState.data = [];
+                usersState.total = 0;
+                usersState.totalPages = 0;
+            }
+            
+            renderUsers();
+            updateDashboard();
+            renderPagination();
+            
         } catch (err) {
             console.error('Fetch users error:', err);
             showToast('Error loading users');
-            return [];
+        } finally {
+            usersState.isLoading = false;
+            hideSkeletonLoader('userTableBody');
+        }
+    }
+
+    // Update state when filters change
+    function updateFiltersAndFetch() {
+        usersState.search = userSearch.value;
+        usersState.roleFilter = userRoleFilter.value;
+        usersState.statusFilter = userStatusFilter.value;
+        usersState.page = 1;
+        fetchUsers();
+    }
+
+    // Debounced search handler
+    const debouncedSearch = debounce(() => {
+        usersState.search = userSearch.value;
+        usersState.page = 1;
+        fetchUsers({ search: userSearch.value });
+    }, 300);
+
+    // Skeleton loader functions
+    function showSkeletonLoader(tableBodyId) {
+        const tbody = document.getElementById(tableBodyId);
+        if (!tbody) return;
+        const skeletonRows = Array(5).fill(`
+            <tr class="skeleton-row">
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+                <td><div class="skeleton-line"></div></td>
+            </tr>
+        `).join('');
+        
+        tbody.innerHTML = skeletonRows;
+    }
+
+    function hideSkeletonLoader(tableBodyId) {
+        // Skeleton is automatically replaced when renderUsers() is called
+    }
+
+    // Results count display
+    function updateResultsCount() {
+        const countInfo = document.getElementById('resultsCount');
+        if (countInfo) {
+            const start = usersState.total > 0 ? (usersState.page - 1) * usersState.perPage + 1 : 0;
+            const end = Math.min(start + usersState.perPage - 1, usersState.total);
+            countInfo.textContent = `Showing ${start}-${end} of ${usersState.total} users`;
+        }
+    }
+
+    // Pagination renderer
+    function renderPagination() {
+        const paginationEl = document.getElementById('pagination');
+        if (!paginationEl || usersState.totalPages <= 1) {
+            if (paginationEl) paginationEl.innerHTML = '';
+            return;
+        }
+        
+        let html = '<div class="pagination">';
+        
+        html += `<button ${usersState.page === 1 ? 'disabled' : ''} 
+                onclick="window.adminGoToPage(${usersState.page - 1})">
+                ← Prev
+                </button>`;
+        
+        for (let i = 1; i <= usersState.totalPages; i++) {
+            html += `<button class="${i === usersState.page ? 'active' : ''}" 
+                    onclick="window.adminGoToPage(${i})">${i}</button>`;
+        }
+        
+        html += `<button ${usersState.page === usersState.totalPages ? 'disabled' : ''} 
+                onclick="window.adminGoToPage(${usersState.page + 1})">
+                Next →
+                </button>`;
+        
+        html += '</div>';
+        paginationEl.innerHTML = html;
+    }
+
+    // Expose pagination function globally
+    window.adminGoToPage = function(page) {
+        usersState.page = page;
+        fetchUsers();
+    };
+
+    async function fetchUserById(userId) {
+        try {
+            const res = await window.authorizedFetch(`${API_BASE}/users/${userId}`);
+            if (!res.ok) throw new Error('Failed to fetch user');
+            return await res.json();
+        } catch (err) {
+            console.error('Fetch user error:', err);
+            showToast('Error loading user');
+            return null;
         }
     }
 
     async function updateUserOnServer(userId, data) {
         try {
+            // Get current user data to fill required fields
+            const currentUser = findUserById(userId);
+            
+            const payload = {
+                username: data.username !== undefined ? data.username : currentUser?.username || '',
+                email: data.email !== undefined ? data.email : currentUser?.email || '',
+                phone: data.phone !== undefined ? data.phone : currentUser?.phone || '09000000000',
+                is_verified: data.is_verified !== undefined ? data.is_verified : currentUser?.is_verified ?? false,
+                is_active: data.is_active !== undefined ? data.is_active : currentUser?.is_active ?? true,
+                role: data.role !== undefined ? data.role : currentUser?.role || 'user',
+                avatar_url: data.avatar_url !== undefined ? data.avatar_url : currentUser?.avatar_url || null
+            };
+            
             const res = await window.authorizedFetch(`${API_BASE}/users/${userId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(payload)
             });
             if (!res.ok) {
                 const errText = await res.text();
@@ -177,11 +362,8 @@
     // ========== Data Loading ==========
     async function loadUsers() {
         await fetchUsers();
-        renderUsers();
-        updateDashboard();
     }
 
-    // fake load for videos/live (until endpoints exist)
     function loadVideos() {
         renderVideos();
         updateDashboard();
@@ -193,9 +375,12 @@
 
     // ========== Dashboard ==========
     function updateDashboard() {
-        if (totalUsersEl) totalUsersEl.textContent = users.length;
+        // Use usersState.data instead of old `users` array
+        if (totalUsersEl) totalUsersEl.textContent = usersState.total;
         if (totalVideosEl) totalVideosEl.textContent = videos.length;
-        if (bannedCountEl) bannedCountEl.textContent = users.filter(u => u.status === 'banned').length;
+        // Count banned users from the full dataset - this is approximate since we only have current page
+        // For accurate count, you'd need a separate API call or metadata from the backend
+        if (bannedCountEl) bannedCountEl.textContent = usersState.data.filter(u => u.is_active === false).length;
         if (recentActivityEl) {
             recentActivityEl.innerHTML = `
                 <tr><td>User registered</td><td>new_user_42</td><td>Just now</td></tr>
@@ -285,38 +470,35 @@
         return `<span class="badge ${classMap[type] || 'badge-copyright-none'}">${labelMap[type] || type}</span>`;
     }
 
-    // ========== Users ==========
-    function getFilteredUsers() {
-        const search = userSearch.value.toLowerCase();
-        const role = userRoleFilter.value;
-        const status = userStatusFilter.value;
-        return users.filter(u =>
-            (u.username.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)) &&
-            (role === 'all' || u.role === role) &&
-            (status === 'all' || u.status === status)
-        );
+    // Format date for display
+    function formatDate(dateString) {
+        if (!dateString) return '–';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
+    // ========== Users ==========
     function renderUsers() {
-        const filtered = getFilteredUsers();
-        userTableBody.innerHTML = filtered.map(u => {
+        if (!userTableBody) return;
+        
+        userTableBody.innerHTML = usersState.data.map(u => {
             const streamBanIcon = u.streamBanned
-                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>` // Play icon (allow)
-                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`; // Ban icon
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`;
             return `
                 <tr>
                     <td>${u.id}</td>
                     <td>${u.username}</td>
-                    <td>${u.email}</td>
+                    <td>${u.email || '–'}</td>
                     <td><span class="badge badge-${u.role === 'admin' ? 'admin' : 'user'}">${u.role}</span></td>
-                    <td><span class="badge badge-${u.status === 'active' ? 'active' : 'banned'}">${u.status}</span></td>
+                    <td><span class="badge badge-${u.is_active ? 'active' : 'banned'}">${u.is_active ? 'active' : 'banned'}</span></td>
                     <td>${u.streamBanned ? '<span class="badge badge-stream-banned">Stream Banned</span>' : '<span class="badge badge-active">Can Stream</span>'}</td>
-                    <td>${u.joinDate || '–'}</td>
+                    <td>${formatDate(u.created_date)}</td>
                     <td>
                         <div class="action-btns">
                             <button class="action-icon edit-user" data-id="${u.id}" title="Edit user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
-                            ${u.status === 'active' ? `<button class="action-icon ban-user" data-id="${u.id}" title="Ban user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></button>` : ''}
-                            ${u.status === 'banned' ? `<button class="action-icon unban-user" data-id="${u.id}" title="Unban user" style="color:#00c853;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg></button>` : ''}
+                            ${u.is_active ? `<button class="action-icon ban-user" data-id="${u.id}" title="Ban user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></button>` : ''}
+                            ${!u.is_active ? `<button class="action-icon unban-user" data-id="${u.id}" title="Unban user" style="color:#00c853;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg></button>` : ''}
                             <button class="action-icon toggle-stream-ban" data-id="${u.id}" title="${u.streamBanned ? 'Allow streaming' : 'Ban from streaming'}">
                                 ${streamBanIcon}
                             </button>
@@ -327,36 +509,33 @@
             `;
         }).join('');
         attachUserActions();
+        updateResultsCount();
     }
 
     function attachUserActions() {
         document.querySelectorAll('.edit-user').forEach(b => b.onclick = () => openEditUserModal(+b.dataset.id));
         document.querySelectorAll('.ban-user').forEach(b => b.onclick = () => openBanModal(+b.dataset.id));
         document.querySelectorAll('.unban-user').forEach(b => b.onclick = () => {
-            const user = users.find(u => u.id === +b.dataset.id);
+            const user = findUserById(+b.dataset.id);
             if (user) {
-                user.status = 'active';
-                updateUserOnServer(user.id, { status: 'active' }).then(() => {
+                updateUserOnServer(user.id, { is_active: true }).then((updatedUser) => {
+                    Object.assign(user, updatedUser);
                     showToast(`${user.username} unbanned.`);
                     renderUsers();
                     updateDashboard();
-                }).catch(() => {
-                    // revert on error? keep UI as is
-                });
+                }).catch(() => {});
             }
         });
         document.querySelectorAll('.toggle-stream-ban').forEach(b => {
             b.onclick = () => {
-                const user = users.find(u => u.id === +b.dataset.id);
+                const user = findUserById(+b.dataset.id);
                 if (user) {
-                    user.streamBanned = !user.streamBanned;
-                    updateUserOnServer(user.id, { streamBanned: user.streamBanned }).then(() => {
+                    const newStreamBanned = !user.streamBanned;
+                    updateUserOnServer(user.id, { streamBanned: newStreamBanned }).then((updatedUser) => {
+                        Object.assign(user, updatedUser);
                         showToast(`Stream ${user.streamBanned ? 'disabled' : 'enabled'}.`);
                         renderUsers();
-                    }).catch(() => {
-                        user.streamBanned = !user.streamBanned; // revert
-                        renderUsers();
-                    });
+                    }).catch(() => {});
                 }
             };
         });
@@ -367,7 +546,8 @@
 
     function deleteUser(id) {
         deleteUserOnServer(id).then(() => {
-            users = users.filter(u => u.id !== id);
+            usersState.data = usersState.data.filter(u => u.id !== id);
+            usersState.total--;
             showToast('User deleted.');
             renderUsers();
             updateDashboard();
@@ -376,7 +556,7 @@
 
     // Ban modal
     function openBanModal(userId) {
-        const user = users.find(u => u.id === userId);
+        const user = findUserById(userId);
         if (!user) return;
         currentBanUserId = userId;
         banUsername.value = user.username;
@@ -390,30 +570,28 @@
     banForm.addEventListener('submit', e => {
         e.preventDefault();
         if (!currentBanUserId) return;
-        const user = users.find(u => u.id === currentBanUserId);
+        const user = findUserById(currentBanUserId);
         if (!user) return;
-        user.status = 'banned';
-        updateUserOnServer(user.id, { status: 'banned' }).then(() => {
+        
+        updateUserOnServer(user.id, { is_active: false }).then((updatedUser) => {
+            Object.assign(user, updatedUser);
             showToast(`${user.username} banned.`);
             closeBanModal();
             renderUsers();
             updateDashboard();
-        }).catch(() => {
-            user.status = 'active'; // revert
-            renderUsers();
-        });
+        }).catch(() => {});
     });
 
     // Edit user modal
     function openEditUserModal(userId) {
-        const user = users.find(u => u.id === userId);
+        const user = findUserById(userId);
         if (!user) return;
         currentEditUserId = userId;
         editUserId.value = user.id;
         editUsername.value = user.username;
-        editEmail.value = user.email;
-        editRole.value = user.role;
-        editStatus.value = user.status;
+        editEmail.value = user.email || '';
+        editRole.value = user.role || 'user';
+        editStatus.value = user.is_active ? 'active' : 'banned';
         editChannel.value = user.channel || '';
         editHandle.value = user.handle || '';
         editBio.value = user.bio || '';
@@ -424,30 +602,24 @@
     editUserModalOverlay.addEventListener('click', e => { if (e.target === editUserModalOverlay) closeEditUserModal(); });
     editUserForm.addEventListener('submit', e => {
         e.preventDefault();
-        const user = users.find(u => u.id === currentEditUserId);
+        const user = findUserById(currentEditUserId);
         if (!user) return;
+        
         const updatedData = {
             username: editUsername.value,
             email: editEmail.value,
             role: editRole.value,
-            status: editStatus.value,
-            channel: editChannel.value,
-            handle: editHandle.value,
-            bio: editBio.value
+            is_active: editStatus.value === 'active'
         };
-        updateUserOnServer(user.id, updatedData).then(() => {
-            // Update local object
-            Object.assign(user, updatedData);
+        
+        updateUserOnServer(user.id, updatedData).then((updatedUser) => {
+            Object.assign(user, updatedUser);
             showToast('User updated.');
             closeEditUserModal();
             renderUsers();
             updateDashboard();
-        });
+        }).catch(() => {});
     });
-
-    userSearch.addEventListener('input', renderUsers);
-    userRoleFilter.addEventListener('change', renderUsers);
-    userStatusFilter.addEventListener('change', renderUsers);
 
     // ========== Videos (mock for now) ==========
     function getFilteredVideos() {
@@ -664,9 +836,27 @@
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllModals(); });
 
+    // Debounce helper
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Event listeners for search/filter
+    userSearch.addEventListener('input', debouncedSearch);
+    userRoleFilter.addEventListener('change', updateFiltersAndFetch);
+    userStatusFilter.addEventListener('change', updateFiltersAndFetch);
+
     // ========== Init ==========
     renderNotifications();
-    loadUsers();    // Fetch real users from API, then render
-    loadVideos();   // still mock
-    loadLiveStreams(); // still mock
+    loadUsers();
+    loadVideos();
+    loadLiveStreams();
 })();
