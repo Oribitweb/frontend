@@ -138,6 +138,7 @@ async function registerUser(userData) {
 async function logoutUser() {
     await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
     currentUser = null;
+    window.currentUser = null;   // مهم: پاک‌سازی window.currentUser
     if (window.updateUserDropdown) window.updateUserDropdown();
     showToast('Logged out successfully');
 }
@@ -146,12 +147,16 @@ async function fetchCurrentUser() {
     try {
         const res = await authorizedFetch(`${API_BASE}/users/me`);
         if (res.ok) {
-            currentUser = await res.json();
+            const user = await res.json();
+            currentUser = user;
+            window.currentUser = user;   // ✅ حالا window هم به‌روز می‌شه
         } else {
             currentUser = null;
+            window.currentUser = null;
         }
     } catch (err) {
         currentUser = null;
+        window.currentUser = null;
     }
     if (window.updateUserDropdown) window.updateUserDropdown();
 }
@@ -205,7 +210,7 @@ window.setTheme = setTheme;
 window.openPopup = openPopup;
 window.closeAllPopups = closeAllPopups;
 window.openPopupById = openPopupById;
-window.currentUser = currentUser;
+window.currentUser = currentUser;        // فقط مقدار اولیه رو می‌ذاریم
 window.fetchCurrentUser = fetchCurrentUser;
 window.logoutUser = logoutUser;
 window.loginUser = loginUser;
@@ -213,7 +218,7 @@ window.registerUser = registerUser;
 
 // ===== Init on DOM ready =====
 document.addEventListener('DOMContentLoaded', () => {
-    fetchCurrentUser();
+    fetchCurrentUser();        // کاربر فعلی رو می‌گیره و هم currentUser و هم window.currentUser رو آپدیت می‌کنه
     initSidebar();
     initCreateDropdown();
     initShowMoreChannels();

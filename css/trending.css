@@ -192,10 +192,10 @@ ul, ol { list-style: none; }
 .support-iframe-container {
     width: 90%;
     margin: 0 auto;
+    margin-top: -50px;
     overflow: hidden;
     border-radius: 12px;
-    background: var(--card-bg);
-    box-shadow: var(--shadow);
+    height: 30%;
 }
 /* ===== Trending Layout ===== */
 .trending-main {

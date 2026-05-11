@@ -35,12 +35,13 @@
             try {
                 await window.loginUser({ username, password });
                 window.closeAllPopups();
-                await window.fetchCurrentUser();
+                await window.fetchCurrentUser();   // این تابع حالا window.currentUser رو ست می‌کنه
                 if (!window.currentUser) {
-                    window.currentUser = { username: username, id: null };
-                    if (window.updateUserDropdown) window.updateUserDropdown();
+                    // اگر fetchCurrentUser ناموفق بود (کاملاً غیرمنتظره)
+                    window.showToast('Could not load user data, but you are logged in.');
+                } else {
+                    window.showToast(`Welcome back, ${window.currentUser.username}!`);
                 }
-                window.showToast(`Welcome back, ${username}!`);
             } catch (err) {
                 const msg = err.message.includes('Invalid') ? 'Invalid username or password' : 'Login failed';
                 showFieldError(loginForm, msg);
