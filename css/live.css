@@ -151,6 +151,7 @@ ul, ol { list-style: none; }
     background: var(--card-bg); border: 1px solid var(--border-color);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; color: var(--text-secondary); transition: background 0.2s, color 0.2s;
+    z-index: 100;
 }
 .sidebar-toggle:hover { background: var(--hover-bg); color: var(--accent); }
 .sidebar--collapsed .sidebar-toggle svg { transform: rotate(180deg); }

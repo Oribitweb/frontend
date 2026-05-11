@@ -64,13 +64,18 @@ function sidebarItem($href, $iconSvg, $label, $activePage, $extraAfter = '') {
     <div class="sidebar__divider"></div>
     <div class="sidebar__support">
         <p class="sidebar__channels-title">Support Us</p>
-        <div class="support-iframe-container">
-            <iframe href="https://donofa.ir/mate/" src="https://w.donofa.ir/IwCWle2FOgoFC9Av6Jq9pS2vcs0rvg3X27pivydnWA3OUKFHtttLoVOfh4edJwqh" 
+        <div class="support-iframe-container" style="position: relative;">
+            <iframe src="https://w.donofa.ir/IwCWle2FOgoFC9Av6Jq9pS2vcs0rvg3X27pivydnWA3OUKFHtttLoVOfh4edJwqh" 
                     title="Support ORBIT" 
                     sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
                     loading="lazy"
                     style="border:none; width:100%; height:250px; border-radius:12px;">
             </iframe>
+            <a href="https://donofa.ir/mate" 
+            target="_blank" 
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+                    opacity: 0; cursor: pointer; z-index: 10;"
+            aria-label="باز کردن صفحه پشتیبانی"></a>
         </div>
     </div>
 
