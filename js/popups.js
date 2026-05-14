@@ -20,7 +20,7 @@
         else window.showToast(message);
     }
 
-    // ===== Auth Forms =====
+    // ===== Auth Forms (Login, Signup, Forgot) – بدون تغییر =====
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -35,9 +35,8 @@
             try {
                 await window.loginUser({ username, password });
                 window.closeAllPopups();
-                await window.fetchCurrentUser();   // این تابع حالا window.currentUser رو ست می‌کنه
+                await window.fetchCurrentUser();
                 if (!window.currentUser) {
-                    // اگر fetchCurrentUser ناموفق بود (کاملاً غیرمنتظره)
                     window.showToast('Could not load user data, but you are logged in.');
                 } else {
                     window.showToast(`Welcome back, ${window.currentUser.username}!`);
@@ -111,28 +110,201 @@
         else if (action === 'backToLogin') window.openPopupById('loginPopup');
     });
 
-    // ===== Upload Form Submissions =====
-    const uploadForm = document.getElementById('uploadForm');
-    if (uploadForm) {
-        uploadForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const title = document.getElementById('videoTitle')?.value.trim();
-            if (!title) { window.showToast('Please enter a video title.'); return; }
-            const videoInput = document.getElementById('videoFileInput');
-            if (videoInput && videoInput.files.length === 0) { window.showToast('Please select a video file.'); return; }
-            window.showToast('Upload started!');
-            window.closeAllPopups();
-            uploadForm.reset();
-            const descDiv = document.getElementById('videoDescription');
-            if (descDiv) { descDiv.innerHTML = ''; document.getElementById('descCounter').textContent = '0 / 5000'; }
-            const videoFileName = document.getElementById('videoFileName');
-            if (videoFileName) videoFileName.textContent = 'Click to select a video file';
-            const progressContainer = document.getElementById('progressContainer');
-            if (progressContainer) progressContainer.style.display = 'none';
-            tags = []; renderTags();
+    // ===== Helper: upload with progress (XMLHttpRequest) =====
+    function uploadWithProgress(url, formData, totalSize, onProgress) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable && onProgress) {
+                    const percent = Math.round((event.loaded / totalSize) * 100);
+                    onProgress(percent, event.loaded, totalSize);
+                }
+            });
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve({ ok: true, response: xhr });
+                } else {
+                    reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+                }
+            });
+            xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+            xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+            xhr.open('POST', url);
+            xhr.send(formData);
         });
     }
 
+    // ===== Upload Video (Real Implementation) =====
+    const uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // 1. Check login
+            if (!window.currentUser) {
+                window.showToast('Please log in to upload videos.');
+                window.openPopupById('loginPopup');
+                return;
+            }
+
+            // 2. Gather metadata
+            const title = document.getElementById('videoTitle')?.value.trim();
+            if (!title) {
+                window.showToast('Please enter a video title.');
+                return;
+            }
+            const descriptionDiv = document.getElementById('videoDescription');
+            const description = descriptionDiv?.innerText || '';
+            const visibilityRadio = document.querySelector('input[name="visibility"]:checked');
+            const visibility = visibilityRadio ? visibilityRadio.value : 'public';
+            const scheduleInput = document.getElementById('schedule');
+            let scheduled_at = scheduleInput?.value ? new Date(scheduleInput.value).toISOString() : null;
+
+            // Audience -> is_made_for_kids
+            const audienceRadio = document.querySelector('input[name="audience"]:checked');
+            let is_made_for_kids = false;
+            if (audienceRadio) {
+                if (audienceRadio.value === 'kids') is_made_for_kids = true;
+                else if (audienceRadio.value === 'not-kids') is_made_for_kids = false;
+                // 'not-sure' -> false as default
+            }
+
+            const language = document.getElementById('language')?.value || 'en';
+            const categorySelect = document.getElementById('category');
+            const category_id = categorySelect ? parseInt(categorySelect.value) || null : null;
+            const licenseRadio = document.querySelector('input[name="license"]:checked');
+            const license = licenseRadio ? licenseRadio.value : 'standard';
+            const commentsRadio = document.querySelector('input[name="comments"]:checked');
+            let allow_comments = true;
+            if (commentsRadio) {
+                if (commentsRadio.value === 'allow') allow_comments = true;
+                else if (commentsRadio.value === 'hide') allow_comments = false;
+                // 'hold' still allows comments but holds for review – we set true
+                else allow_comments = true;
+            }
+
+            // Tags (array of strings)
+            const tagsList = tags; // already managed by tag system
+
+            // Video file
+            const videoFileInput = document.getElementById('videoFileInput');
+            const videoFile = videoFileInput?.files[0];
+            if (!videoFile) {
+                window.showToast('Please select a video file.');
+                return;
+            }
+            if (videoFile.size > 500 * 1024 * 1024) {
+                window.showToast('File too large. Max 500MB.');
+                return;
+            }
+            if (!videoFile.type.startsWith('video/')) {
+                window.showToast('File must be a video.');
+                return;
+            }
+
+            // Show progress container
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            if (progressContainer) progressContainer.style.display = 'flex';
+            if (progressFill) progressFill.style.width = '0%';
+            if (progressText) progressText.textContent = '0%';
+
+            // Disable submit button during upload
+            const submitBtn = uploadForm.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                // STEP 1: Request presigned URL
+                const metadata = {
+                    title,
+                    description: description || null,
+                    visibility,
+                    duration_seconds: null,
+                    is_short: false,
+                    is_made_for_kids,
+                    allow_comments,
+                    language,
+                    license,
+                    scheduled_at,
+                    category_id,
+                    tags: tagsList
+                };
+
+                const presignedResponse = await window.authorizedFetch(`${API_BASE}/videos/upload-request`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(metadata)
+                });
+
+                if (!presignedResponse.ok) {
+                    let errorData;
+                    try { errorData = await presignedResponse.json(); } catch(e) {}
+                    throw new Error(errorData?.detail || `Failed to get upload URL (${presignedResponse.status})`);
+                }
+
+                const presignedData = await presignedResponse.json();
+                console.log('Presigned data:', presignedData);
+
+                // STEP 2: Upload directly to S3 with progress
+                const formData = new FormData();
+                for (const [key, value] of Object.entries(presignedData.upload_fields)) {
+                    formData.append(key, value);
+                }
+                formData.append('file', videoFile, videoFile.name);
+
+                await uploadWithProgress(
+                    presignedData.upload_url,
+                    formData,
+                    videoFile.size,
+                    (percent, loaded, total) => {
+                        if (progressFill) progressFill.style.width = percent + '%';
+                        if (progressText) {
+                            const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+                            const totalMB = (total / (1024 * 1024)).toFixed(1);
+                            progressText.textContent = `${percent}% (${loadedMB}MB / ${totalMB}MB)`;
+                        }
+                    }
+                );
+
+                // STEP 3: Confirm upload complete
+                const completeResponse = await window.authorizedFetch(`${API_BASE}/videos/${presignedData.video_id}/upload-complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!completeResponse.ok) {
+                    let errorData;
+                    try { errorData = await completeResponse.json(); } catch(e) {}
+                    throw new Error(errorData?.detail || `Confirmation failed (${completeResponse.status})`);
+                }
+
+                const completeData = await completeResponse.json();
+                window.showToast(`✅ Upload complete! Video ID: ${presignedData.video_id}`);
+                window.closeAllPopups();
+                uploadForm.reset();
+                // reset description and tags
+                if (descriptionDiv) descriptionDiv.innerHTML = '';
+                if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
+                tags = [];
+                renderTags();
+                const videoFileNameSpan = document.getElementById('videoFileName');
+                if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
+                // Optionally reload page or refresh video list
+                if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
+            } catch (err) {
+                console.error('Upload error:', err);
+                window.showToast(`Upload failed: ${err.message}`);
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+                if (progressContainer) progressContainer.style.display = 'none';
+                if (progressFill) progressFill.style.width = '0%';
+                if (progressText) progressText.textContent = '0%';
+            }
+        });
+    }
+
+    // ===== Short Video Upload (similar, can be extended later) =====
     const shortForm = document.getElementById('shortForm');
     if (shortForm) {
         shortForm.addEventListener('submit', (e) => {
@@ -141,7 +313,7 @@
             if (!title) { window.showToast('Please enter a title.'); return; }
             const shortFile = document.getElementById('shortFileInput');
             if (shortFile && shortFile.files.length === 0) { window.showToast('Please select a short video.'); return; }
-            window.showToast('Short published!');
+            window.showToast('Short published! (backend integration coming soon)');
             window.closeAllPopups();
             shortForm.reset();
             const shortFileName = document.getElementById('shortFileName');
@@ -149,6 +321,7 @@
         });
     }
 
+    // ===== Community Post Popup =====
     const postForm = document.getElementById('postForm');
     if (postForm) {
         postForm.addEventListener('submit', (e) => {
@@ -163,7 +336,7 @@
         });
     }
 
-    // ===== Description Editor =====
+    // ===== Description Editor (same as before) =====
     const descDiv = document.getElementById('videoDescription');
     const descCounter = document.getElementById('descCounter');
     if (descDiv) {
@@ -237,13 +410,14 @@
         });
     }
 
-    // ===== Thumbnail & Video Upload UI =====
+    // ===== Thumbnail & Video Upload UI (mock selections, but keep for UX) =====
     const thumbUploadArea = document.getElementById('thumbUploadArea');
     const thumbUploadInput = document.getElementById('thumbUploadInput');
     if (thumbUploadArea) thumbUploadArea.addEventListener('click', () => thumbUploadInput.click());
     if (thumbUploadInput) thumbUploadInput.addEventListener('change', () => { if (thumbUploadInput.files[0]) window.showToast('Thumbnail selected.'); });
     const chooseFrameBtn = document.getElementById('chooseFrameBtn');
-    if (chooseFrameBtn) chooseFrameBtn.addEventListener('click', () => window.showToast('Frame selection simulated.'));
+    if (chooseFrameBtn) chooseFrameBtn.addEventListener('click', () => window.showToast('Frame selection coming soon.'));
+    
     const videoFileArea = document.getElementById('videoFileArea');
     const videoFileInput = document.getElementById('videoFileInput');
     const videoFileName = document.getElementById('videoFileName');
@@ -252,26 +426,11 @@
         videoFileInput.addEventListener('change', () => {
             if (videoFileInput.files[0]) {
                 videoFileName.textContent = videoFileInput.files[0].name;
-                const progressContainer = document.getElementById('progressContainer');
-                const progressFill = document.getElementById('progressFill');
-                const progressText = document.getElementById('progressText');
-                if (progressContainer) progressContainer.style.display = 'flex';
-                let prog = 0;
-                const interval = setInterval(() => {
-                    prog += Math.floor(Math.random() * 15) + 5;
-                    if (prog >= 100) {
-                        clearInterval(interval);
-                        if (progressFill) progressFill.style.width = '100%';
-                        if (progressText) progressText.textContent = '100%';
-                        window.showToast('File ready.');
-                    } else {
-                        if (progressFill) progressFill.style.width = prog + '%';
-                        if (progressText) progressText.textContent = prog + '%';
-                    }
-                }, 300);
+                // No mock progress – real upload will show progress later
             } else {
                 videoFileName.textContent = 'Click to select a video file';
-                document.getElementById('progressContainer').style.display = 'none';
+                const progressContainer = document.getElementById('progressContainer');
+                if (progressContainer) progressContainer.style.display = 'none';
             }
         });
     }

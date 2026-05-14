@@ -3,9 +3,8 @@
 /* Orby Button */
 .orby-btn {
     background: linear-gradient(135deg, var(--card-bg), var(--input-bg));
-    border: 1px solid rgba(255, 100, 0, 0.5);
     border-radius: 30px;
-    padding: 6px 10px;
+    padding: 6px 4px;
     display: flex;
     align-items: center;
     gap: 8px;

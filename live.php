@@ -130,7 +130,6 @@ include 'includes/sidebar.php';
             <!-- Orby Button -->
             <button class="orby-btn" id="orbyBtn" title="Send Orby">
                 <img src="assets/img/orby/orby.png" alt="Orby" width="22" height="22">
-                <span>ORBY</span>
             </button>
             <input type="text" class="chat-input" id="chatInput" placeholder="Say something..." maxlength="200">
             <button class="send-btn" id="sendMessageBtn" aria-label="Send">
