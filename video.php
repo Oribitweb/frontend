@@ -58,7 +58,12 @@ include 'includes/sidebar.php';
                             <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
                         </div>
                         <div class="right-controls">
-                            <button class="control-btn" id="speedBtn"><span class="speed-label">1x</span></button>
+                            <button class="control-btn" id="settingsBtn" aria-label="Settings">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                </svg>
+                            </button>
                             <button class="control-btn" id="pipBtn" aria-label="Picture in Picture">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><rect x="8" y="8" width="8" height="6" rx="1"/></svg>
                             </button>
@@ -70,10 +75,33 @@ include 'includes/sidebar.php';
                             </button>
                         </div>
                     </div>
-                    <div class="speed-menu" id="speedMenu">
-                        <button data-speed="0.5">0.5x</button><button data-speed="0.75">0.75x</button>
-                        <button data-speed="1" class="active">1x</button><button data-speed="1.25">1.25x</button>
-                        <button data-speed="1.5">1.5x</button><button data-speed="2">2x</button>
+                    <!-- Settings Menu -->
+                    <div class="settings-menu" id="settingsMenu">
+                        <div class="settings-section">
+                            <div class="settings-section-title">Playback Speed</div>
+                            <div class="settings-speed-buttons">
+                                <button data-speed="0.5">0.5x</button>
+                                <button data-speed="0.75">0.75x</button>
+                                <button data-speed="1" class="active">1x</button>
+                                <button data-speed="1.25">1.25x</button>
+                                <button data-speed="1.5">1.5x</button>
+                                <button data-speed="2">2x</button>
+                            </div>
+                        </div>
+                        <div class="settings-divider"></div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Quality</div>
+                            <div class="settings-quality-buttons" id="qualityButtons">
+                                <button data-quality="8K">8K</button>
+                                <button data-quality="4K">4K</button>
+                                <button data-quality="2K">2K</button>
+                                <button data-quality="1080p">1080p FHD</button>
+                                <button data-quality="720p">720p HD</button>
+                                <button data-quality="480p">480p SD</button>
+                                <button data-quality="360p">360p</button>
+                                <button data-quality="240p">240p</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

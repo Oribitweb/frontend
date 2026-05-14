@@ -1,4 +1,4 @@
-// video.js – Watch Page
+// video.js – Watch Page (with Settings Menu: Speed + Quality, no standalone speed button)
 (function() {
     const video = document.getElementById('mainVideo');
     const playerWrapper = document.getElementById('playerWrapper');
@@ -17,9 +17,6 @@
     const volOnIcon = volumeBtn.querySelector('.vol-on');
     const volOffIcon = volumeBtn.querySelector('.vol-off');
     const volumeSlider = document.getElementById('volumeSlider');
-    const speedBtn = document.getElementById('speedBtn');
-    const speedMenu = document.getElementById('speedMenu');
-    const speedLabel = document.querySelector('.speed-label');
     const pipBtn = document.getElementById('pipBtn');
     const theaterBtn = document.getElementById('theaterBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -55,6 +52,25 @@
     const shareCopyBtn = document.getElementById('shareCopyBtn');
     const mutedIndicator = document.getElementById('mutedIndicator');
 
+    // ===== Settings Menu Elements =====
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsMenu = document.getElementById('settingsMenu');
+    let currentQuality = '1080p';
+
+    // Quality mapping
+    const qualitySources = {
+        '8K': 'assets/vid_8k.mp4',
+        '4K': 'assets/vid_4k.mp4',
+        '2K': 'assets/vid_2k.mp4',
+        '1080p': 'assets/vid_1080p.mp4',
+        '720p': 'assets/vid_720p.mp4',
+        '480p': 'assets/vid_480p.mp4',
+        '360p': 'assets/vid_360p.mp4',
+        '240p': 'assets/vid_240p.mp4'
+    };
+    const originalSrc = video.querySelector('source')?.src || video.src || 'assets/vid.mp4';
+
+    // Emoji list
     const emojiList = ['happy.png', 'sad.png', 'shocked.png', 'like.png', 'dislike.png', 'thank.png', 'angry.png', 'stupid.png', 'ok.png', 'iran.png'];
 
     // ===== Ambient Light =====
@@ -144,18 +160,6 @@
         }
         updateVolIcon();
     });
-
-    speedBtn.addEventListener('click', () => speedMenu.classList.toggle('active'));
-    speedMenu.querySelectorAll('button').forEach(b => {
-        b.addEventListener('click', () => {
-            video.playbackRate = parseFloat(b.dataset.speed);
-            speedLabel.textContent = b.dataset.speed + 'x';
-            speedMenu.querySelectorAll('button').forEach(x => x.classList.remove('active'));
-            b.classList.add('active');
-            speedMenu.classList.remove('active');
-        });
-    });
-    document.addEventListener('click', (e) => { if (!speedMenu.contains(e.target) && e.target !== speedBtn) speedMenu.classList.remove('active'); });
 
     pipBtn.addEventListener('click', async () => {
         try {
@@ -451,5 +455,114 @@
     }
     renderRelated();
 
-    // ===== Toast (redundant? using window.showToast) =====
+    // ========== SETTINGS MENU FUNCTIONALITY ==========
+    // Change video quality
+    function changeQuality(quality) {
+        if (!qualitySources[quality]) {
+            window.showToast(`Quality file for ${quality} not found. Using default.`);
+            return;
+        }
+        const wasPlaying = !video.paused;
+        const currentTime = video.currentTime;
+        const newSrc = qualitySources[quality];
+        
+        video.src = newSrc;
+        video.load();
+        video.currentTime = currentTime;
+        if (wasPlaying) {
+            video.play().catch(e => console.log('Auto-play after quality change prevented', e));
+        }
+        currentQuality = quality;
+        
+        // Update active class on quality buttons
+        document.querySelectorAll('.settings-quality-buttons button').forEach(btn => {
+            if (btn.dataset.quality === quality) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        window.showToast(`Quality changed to ${quality}`);
+    }
+
+    // Update active speed button in settings menu
+    function updateSettingsSpeedActive(speed) {
+        const settingsSpeedBtns = document.querySelectorAll('.settings-speed-buttons button');
+        settingsSpeedBtns.forEach(btn => {
+            if (parseFloat(btn.dataset.speed) === speed) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
+
+    // Initialize quality buttons
+    function initQualityButtons() {
+        const qualityBtns = document.querySelectorAll('.settings-quality-buttons button');
+        qualityBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const quality = btn.dataset.quality;
+                changeQuality(quality);
+                settingsMenu.classList.remove('active');
+            });
+        });
+        // Set initial active based on currentQuality
+        qualityBtns.forEach(btn => {
+            if (btn.dataset.quality === currentQuality) btn.classList.add('active');
+        });
+    }
+
+    // Initialize settings speed buttons
+    function initSettingsSpeedButtons() {
+        const settingsSpeedBtns = document.querySelectorAll('.settings-speed-buttons button');
+        settingsSpeedBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const speed = parseFloat(btn.dataset.speed);
+                video.playbackRate = speed;
+                // Update active in settings
+                settingsSpeedBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                settingsMenu.classList.remove('active');
+            });
+        });
+        // Sync initial active with current speed (default 1)
+        const currentSpeed = video.playbackRate;
+        settingsSpeedBtns.forEach(btn => {
+            if (parseFloat(btn.dataset.speed) === currentSpeed) btn.classList.add('active');
+        });
+    }
+
+    // Toggle settings menu
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle('active');
+        });
+    }
+    // Close settings menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (settingsMenu && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+            settingsMenu.classList.remove('active');
+        }
+    });
+
+    // Detect current quality from video src (if different from default)
+    function detectCurrentQualityFromSrc() {
+        const currentSrc = video.currentSrc || video.src;
+        for (const [quality, src] of Object.entries(qualitySources)) {
+            if (currentSrc.includes(src) || currentSrc === src) {
+                currentQuality = quality;
+                const qualityBtns = document.querySelectorAll('.settings-quality-buttons button');
+                qualityBtns.forEach(btn => {
+                    if (btn.dataset.quality === quality) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                });
+                break;
+            }
+        }
+    }
+    detectCurrentQualityFromSrc();
+
+    // Initialize all settings components
+    if (settingsMenu) {
+        initQualityButtons();
+        initSettingsSpeedButtons();
+    }
 })();
