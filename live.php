@@ -219,8 +219,8 @@ include 'includes/sidebar.php';
 <!-- Orby Selection Menu (hidden by default) -->
 <div class="orby-selection-overlay" id="orbySelectionOverlay">
     <div class="orby-selection-panel">
-        <h3>💎 Send Orby</h3>
-        <p>Choose your Orby amount</p>
+        <h3>💎 DONATE AS ORBY!</h3>
+        <p>CHOOSE YOUR ORBY AMOUNT</p>
         <div class="orby-levels-grid" id="orbyLevelsGrid"></div>
         <button class="orby-close-btn" id="orbyCloseBtn">Close</button>
     </div>
@@ -230,7 +230,7 @@ include 'includes/sidebar.php';
 <div class="orby-donation-modal" id="orbyDonationModal">
     <div class="orby-donation-panel">
         <div class="orby-donation-header">
-            <h4 id="donationAmountTitle">Send 75 Orby</h4>
+            <h4 id="donationAmountTitle">Send 75 ORBY</h4>
             <button class="orby-modal-close" id="orbyModalCloseBtn">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
