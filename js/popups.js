@@ -20,7 +20,7 @@
         else window.showToast(message);
     }
 
-    // ===== Auth Forms (Login, Signup, Forgot) – بدون تغییر =====
+    // ===== Auth Forms (unchanged – assumed to work via window.loginUser etc.) =====
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -110,31 +110,31 @@
         else if (action === 'backToLogin') window.openPopupById('loginPopup');
     });
 
-    // ===== Helper: upload with progress (XMLHttpRequest) =====
-    function uploadWithProgress(url, formData, totalSize, onProgress) {
+    // ===== Helper: upload with progress (PUT method for presigned URLs) =====
+    function uploadFileWithProgress(url, file, onProgress) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.upload.addEventListener('progress', (event) => {
                 if (event.lengthComputable && onProgress) {
-                    const percent = Math.round((event.loaded / totalSize) * 100);
-                    onProgress(percent, event.loaded, totalSize);
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    onProgress(percent, event.loaded, event.total);
                 }
             });
             xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve({ ok: true, response: xhr });
+                    resolve();
                 } else {
-                    reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+                    reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
                 }
             });
             xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
             xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
-            xhr.open('POST', url);
-            xhr.send(formData);
+            xhr.open('PUT', url);
+            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+            xhr.send(file);
         });
     }
 
-    // ===== Upload Video (Real Implementation) =====
     const uploadForm = document.getElementById('uploadForm');
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (e) => {
@@ -160,13 +160,11 @@
             const scheduleInput = document.getElementById('schedule');
             let scheduled_at = scheduleInput?.value ? new Date(scheduleInput.value).toISOString() : null;
 
-            // Audience -> is_made_for_kids
             const audienceRadio = document.querySelector('input[name="audience"]:checked');
             let is_made_for_kids = false;
             if (audienceRadio) {
                 if (audienceRadio.value === 'kids') is_made_for_kids = true;
                 else if (audienceRadio.value === 'not-kids') is_made_for_kids = false;
-                // 'not-sure' -> false as default
             }
 
             const language = document.getElementById('language')?.value || 'en';
@@ -179,12 +177,10 @@
             if (commentsRadio) {
                 if (commentsRadio.value === 'allow') allow_comments = true;
                 else if (commentsRadio.value === 'hide') allow_comments = false;
-                // 'hold' still allows comments but holds for review – we set true
                 else allow_comments = true;
             }
 
-            // Tags (array of strings)
-            const tagsList = tags; // already managed by tag system
+            const tagsList = tags;
 
             // Video file
             const videoFileInput = document.getElementById('videoFileInput');
@@ -202,6 +198,10 @@
                 return;
             }
 
+            // Thumbnail file (optional)
+            const thumbInput = document.getElementById('thumbUploadInput');
+            const thumbnailFile = thumbInput?.files[0] || null;
+
             // Show progress container
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
@@ -210,53 +210,46 @@
             if (progressFill) progressFill.style.width = '0%';
             if (progressText) progressText.textContent = '0%';
 
-            // Disable submit button during upload
             const submitBtn = uploadForm.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
 
-            try {
-                // STEP 1: Request presigned URL
-                const metadata = {
-                    title,
-                    description: description || null,
-                    visibility,
-                    duration_seconds: null,
-                    is_short: false,
-                    is_made_for_kids,
-                    allow_comments,
-                    language,
-                    license,
-                    scheduled_at,
-                    category_id,
-                    tags: tagsList
-                };
+            // Declare variables OUTSIDE try block for proper scoping
+            let upload_url = null;
+            let object_key = null;
 
-                const presignedResponse = await window.authorizedFetch(`${API_BASE}/videos/upload-request`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(metadata)
-                });
+            try {
+                // STEP 1: Get presigned upload URL
+                const filenameEncoded = encodeURIComponent(videoFile.name);
+                const presignedResponse = await window.authorizedFetch(
+                    `${API_BASE}/videos/upload-url?filename=${filenameEncoded}`
+                );
 
                 if (!presignedResponse.ok) {
-                    let errorData;
-                    try { errorData = await presignedResponse.json(); } catch(e) {}
-                    throw new Error(errorData?.detail || `Failed to get upload URL (${presignedResponse.status})`);
+                    let errMsg = `Server error (${presignedResponse.status})`;
+                    try {
+                        const errorBody = await presignedResponse.json();
+                        if (Array.isArray(errorBody.detail)) {
+                            errMsg = errorBody.detail.map(e => e.msg).join('. ');
+                        } else if (typeof errorBody.detail === 'string') {
+                            errMsg = errorBody.detail;
+                        }
+                    } catch (_) {}
+
+                    if (presignedResponse.status === 401) {
+                        errMsg = 'You are not logged in. Please log in again.';
+                    }
+                    throw new Error(errMsg);
                 }
 
-                const presignedData = await presignedResponse.json();
-                console.log('Presigned data:', presignedData);
+                const data = await presignedResponse.json();
+                upload_url = data.upload_url;
+                object_key = data.object_key;
+                console.log('Presigned URL obtained:', upload_url);
 
-                // STEP 2: Upload directly to S3 with progress
-                const formData = new FormData();
-                for (const [key, value] of Object.entries(presignedData.upload_fields)) {
-                    formData.append(key, value);
-                }
-                formData.append('file', videoFile, videoFile.name);
-
-                await uploadWithProgress(
-                    presignedData.upload_url,
-                    formData,
-                    videoFile.size,
+                // STEP 2: Upload video file (PUT)
+                await uploadFileWithProgress(
+                    upload_url,
+                    videoFile,
                     (percent, loaded, total) => {
                         if (progressFill) progressFill.style.width = percent + '%';
                         if (progressText) {
@@ -267,30 +260,66 @@
                     }
                 );
 
-                // STEP 3: Confirm upload complete
-                const completeResponse = await window.authorizedFetch(`${API_BASE}/videos/${presignedData.video_id}/upload-complete`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                // STEP 3 (optional): Upload thumbnail
+                let thumbnail_key = null;
+                if (thumbnailFile) {
+                    const thumbResp = await window.authorizedFetch(
+                        `${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`
+                    );
+                    if (thumbResp.ok) {
+                        const thumbData = await thumbResp.json();
+                        await uploadFileWithProgress(thumbData.upload_url, thumbnailFile);
+                        thumbnail_key = thumbData.object_key;
+                    } else {
+                        console.warn('Thumbnail upload URL request failed, continuing without thumbnail');
+                    }
+                }
+
+                // STEP 4: Confirm upload and create video record
+                const completePayload = {
+                    title,
+                    description: description || null,
+                    original_filename: videoFile.name,
+                    file_size: videoFile.size,
+                    mime_type: videoFile.type,
+                    object_key,
+                    visibility,
+                    category_id,
+                    language,
+                    allow_comments,
+                    is_made_for_kids,
+                    is_short: false,
+                    scheduled_at,
+                    license,
+                    tags: tagsList,
+                    thumbnail_key
+                };
+
+                const completeResponse = await window.authorizedFetch(
+                    `${API_BASE}/videos/complete`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(completePayload)
+                    }
+                );
 
                 if (!completeResponse.ok) {
-                    let errorData;
-                    try { errorData = await completeResponse.json(); } catch(e) {}
-                    throw new Error(errorData?.detail || `Confirmation failed (${completeResponse.status})`);
+                    let errData;
+                    try { errData = await completeResponse.json(); } catch (_) { }
+                    throw new Error(errData?.detail || `Confirmation failed (${completeResponse.status})`);
                 }
 
                 const completeData = await completeResponse.json();
-                window.showToast(`✅ Upload complete! Video ID: ${presignedData.video_id}`);
+                window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – transcoding started.`);
                 window.closeAllPopups();
                 uploadForm.reset();
-                // reset description and tags
                 if (descriptionDiv) descriptionDiv.innerHTML = '';
                 if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
                 tags = [];
                 renderTags();
                 const videoFileNameSpan = document.getElementById('videoFileName');
                 if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
-                // Optionally reload page or refresh video list
                 if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
             } catch (err) {
                 console.error('Upload error:', err);
@@ -304,7 +333,7 @@
         });
     }
 
-    // ===== Short Video Upload (similar, can be extended later) =====
+    // ===== Short Video Upload (placeholder – adjust similarly if needed) =====
     const shortForm = document.getElementById('shortForm');
     if (shortForm) {
         shortForm.addEventListener('submit', (e) => {
@@ -336,7 +365,7 @@
         });
     }
 
-    // ===== Description Editor (same as before) =====
+    // ===== Description Editor =====
     const descDiv = document.getElementById('videoDescription');
     const descCounter = document.getElementById('descCounter');
     if (descDiv) {
@@ -410,14 +439,16 @@
         });
     }
 
-    // ===== Thumbnail & Video Upload UI (mock selections, but keep for UX) =====
+    // ===== Thumbnail & Video UI interactions =====
     const thumbUploadArea = document.getElementById('thumbUploadArea');
     const thumbUploadInput = document.getElementById('thumbUploadInput');
     if (thumbUploadArea) thumbUploadArea.addEventListener('click', () => thumbUploadInput.click());
-    if (thumbUploadInput) thumbUploadInput.addEventListener('change', () => { if (thumbUploadInput.files[0]) window.showToast('Thumbnail selected.'); });
+    if (thumbUploadInput) thumbUploadInput.addEventListener('change', () => {
+        if (thumbUploadInput.files[0]) window.showToast('Thumbnail selected.');
+    });
     const chooseFrameBtn = document.getElementById('chooseFrameBtn');
     if (chooseFrameBtn) chooseFrameBtn.addEventListener('click', () => window.showToast('Frame selection coming soon.'));
-    
+
     const videoFileArea = document.getElementById('videoFileArea');
     const videoFileInput = document.getElementById('videoFileInput');
     const videoFileName = document.getElementById('videoFileName');
@@ -426,7 +457,6 @@
         videoFileInput.addEventListener('change', () => {
             if (videoFileInput.files[0]) {
                 videoFileName.textContent = videoFileInput.files[0].name;
-                // No mock progress – real upload will show progress later
             } else {
                 videoFileName.textContent = 'Click to select a video file';
                 const progressContainer = document.getElementById('progressContainer');
@@ -460,6 +490,10 @@
     const tagInput = document.getElementById('tagInput');
     const addTagBtn = document.getElementById('addTagBtn');
     const tagCounterSpan = document.getElementById('tagCounter');
+    function escapeHtml(text) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
     function renderTags() {
         if (!tagDisplay) return;
         tagDisplay.innerHTML = tags.map((t, i) => `<span class="tag-chip">${escapeHtml(t)}<button type="button" data-index="${i}">×</button></span>`).join('');
