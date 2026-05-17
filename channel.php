@@ -14,7 +14,10 @@ include 'includes/sidebar.php';
     <div class="channel-header">
         <div class="channel-avatar-large">CN</div>
         <div class="channel-info-text">
-            <h1 class="channel-name">Channel Name</h1>
+            <h1 class="channel-name">
+                Channel Name
+                <span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
+            </h1>
             <div class="channel-handle-row">
                 <span class="channel-handle">@channelname</span>
                 <span class="subscriber-count">123K subscribers</span>

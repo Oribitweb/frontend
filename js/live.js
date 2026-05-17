@@ -212,15 +212,16 @@
             }
         });
     }
-    function addChatMessage(author, text) {
+    function addChatMessage(author, text, verified = false) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-message';
         const formatted = formatChatText(text);
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const verifiedBadge = verified ? `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
         msgDiv.innerHTML = `
             <div class="chat-avatar">${escapeHtml(author[0])}</div>
             <div class="chat-content">
-                <div><span class="chat-author">${escapeHtml(author)}</span><span class="chat-time"> ${now}</span></div>
+                <div><span class="chat-author">${escapeHtml(author)}${verifiedBadge}</span><span class="chat-time"> ${now}</span></div>
                 <div class="chat-text">${formatted}</div>
             </div>`;
         chatMessages.appendChild(msgDiv);
@@ -229,7 +230,8 @@
     function sendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
-        addChatMessage('You', text);
+        // Assume the streamer is verified
+        addChatMessage('You', text, true);
         chatInput.value = '';
     }
     sendMessageBtn?.addEventListener('click', sendMessage);

@@ -11,23 +11,25 @@
     const toastContainer = document.getElementById('toastContainer');
 
     const videos = [
-        { title: "How to Explore Space", views: "1.2M", time: "2 weeks ago", duration: "12:34", thumbnail: "assets/thumbnail.png" },
-        { title: "ORBIT Platform Overview", views: "856K", time: "1 month ago", duration: "8:20", thumbnail: "assets/thumbnail.png" },
-        { title: "Live Q&A Session", views: "432K", time: "3 months ago", duration: "45:10", thumbnail: "assets/thumbnail.png" },
-        { title: "New Features Update", views: "298K", time: "5 months ago", duration: "4:55", thumbnail: "assets/thumbnail.png" },
-        { title: "Behind the Scenes", views: "187K", time: "7 months ago", duration: "10:15", thumbnail: "assets/thumbnail.png" },
-        { title: "Community Highlights", views: "95K", time: "1 year ago", duration: "22:40", thumbnail: "assets/thumbnail.png" },
-        { title: "Deep Dive into Stars", views: "64K", time: "1 year ago", duration: "18:05", thumbnail: "assets/thumbnail.png" },
-        { title: "ORBIT Shorts Compilation", views: "210K", time: "8 months ago", duration: "6:30", thumbnail: "assets/thumbnail.png" },
-        { title: "Tutorial: Getting Started", views: "502K", time: "4 months ago", duration: "14:22", thumbnail: "assets/thumbnail.png" },
-        { title: "Live from Space Center", views: "88K", time: "2 months ago", duration: "1:02:15", thumbnail: "assets/thumbnail.png" }
+        { title: "How to Explore Space", views: "1.2M", time: "2 weeks ago", duration: "12:34", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "ORBIT Platform Overview", views: "856K", time: "1 month ago", duration: "8:20", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Live Q&A Session", views: "432K", time: "3 months ago", duration: "45:10", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "New Features Update", views: "298K", time: "5 months ago", duration: "4:55", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Behind the Scenes", views: "187K", time: "7 months ago", duration: "10:15", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Community Highlights", views: "95K", time: "1 year ago", duration: "22:40", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Deep Dive into Stars", views: "64K", time: "1 year ago", duration: "18:05", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "ORBIT Shorts Compilation", views: "210K", time: "8 months ago", duration: "6:30", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Tutorial: Getting Started", views: "502K", time: "4 months ago", duration: "14:22", thumbnail: "assets/thumbnail.png", verified: true },
+        { title: "Live from Space Center", views: "88K", time: "2 months ago", duration: "1:02:15", thumbnail: "assets/thumbnail.png", verified: true }
     ];
 
     function parseViews(viewStr) {
         const num = parseFloat(viewStr);
         return viewStr.includes('K') ? num * 1000 : num;
     }
+    
     function renderVideoCard(v) {
+        const verifiedBadge = v.verified ? `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
         return `<div class="video-card">
             <div class="thumb" style="background-image:url(${v.thumbnail})">
                 <span class="duration">${v.duration}</span>
@@ -38,15 +40,20 @@
                     <span>${v.views} views</span>
                     <span>${v.time}</span>
                 </div>
+                <div class="channel-name" style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">
+                    Channel Name${verifiedBadge}
+                </div>
             </div>
         </div>`;
     }
+    
     function renderVideosSorted(sortType = 'latest') {
         let sorted = [...videos];
         if (sortType === 'popular') sorted.sort((a, b) => parseViews(b.views) - parseViews(a.views));
         else if (sortType === 'oldest') sorted.reverse();
         videoGrid.innerHTML = sorted.map(renderVideoCard).join('');
     }
+    
     function renderAll() {
         const popularSorted = [...videos].sort((a, b) => parseViews(b.views) - parseViews(a.views));
         homeVideoGrid.innerHTML = popularSorted.slice(0, 5).map(renderVideoCard).join('');

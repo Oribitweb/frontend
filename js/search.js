@@ -18,9 +18,10 @@
             const res = await window.authorizedFetch(url);
             if (!res.ok) throw new Error('Failed to fetch videos');
             const data = await res.json();
-            // data could be { videos: [...] } or array
             const videos = data.videos || (Array.isArray(data) ? data : []);
-            renderResults(videos);
+            // Add verified flag to some videos (mock for now)
+            const videosWithVerified = videos.map((v, idx) => ({ ...v, verified: idx % 3 === 0 }));
+            renderResults(videosWithVerified);
         } catch (err) {
             console.error(err);
             loader.style.display = 'none';
@@ -40,22 +41,25 @@
         noResults.style.display = 'none';
         resultsCountSpan.textContent = `${videos.length} result${videos.length !== 1 ? 's' : ''}`;
 
-        videoGrid.innerHTML = videos.map(video => `
-            <article class="video-card" data-video-id="${video.id}" onclick="window.location.href='video.php?id=${video.id}'">
-                <div class="video-card__thumbnail">
-                    <img src="${video.thumbnail_url || 'assets/thumbnail.png'}" alt="${escapeHtml(video.title)}">
-                    <span class="video-card__duration">${formatDuration(video.duration_seconds)}</span>
-                </div>
-                <div class="video-card__info">
-                    <div class="video-card__channel-img">${escapeHtml((video.channel_name || 'U')[0])}</div>
-                    <div class="video-card__text">
-                        <h3>${escapeHtml(video.title)}</h3>
-                        <p>${escapeHtml(video.channel_name || 'Unknown')}</p>
-                        <p>${formatViews(video.views)} views • ${formatRelativeTime(video.created_at)}</p>
+        videoGrid.innerHTML = videos.map(video => {
+            const verifiedBadge = video.verified ? `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
+            return `
+                <article class="video-card" data-video-id="${video.id}" onclick="window.location.href='video.php?id=${video.id}'">
+                    <div class="video-card__thumbnail">
+                        <img src="${video.thumbnail_url || 'assets/thumbnail.png'}" alt="${escapeHtml(video.title)}">
+                        <span class="video-card__duration">${formatDuration(video.duration_seconds)}</span>
                     </div>
-                </div>
-            </article>
-        `).join('');
+                    <div class="video-card__info">
+                        <div class="video-card__channel-img">${escapeHtml((video.channel_name || 'U')[0])}</div>
+                        <div class="video-card__text">
+                            <h3>${escapeHtml(video.title)}</h3>
+                            <p>${escapeHtml(video.channel_name || 'Unknown')}${verifiedBadge}</p>
+                            <p>${formatViews(video.views)} views • ${formatRelativeTime(video.created_at)}</p>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join('');
     }
 
     function formatDuration(seconds) {
@@ -75,7 +79,6 @@
     }
 
     function formatRelativeTime(dateStr) {
-        // simple fallback
         if (!dateStr) return 'recently';
         const date = new Date(dateStr);
         const now = new Date();

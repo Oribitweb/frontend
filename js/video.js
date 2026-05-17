@@ -1,4 +1,4 @@
-// video.js – Watch Page (with Settings Menu: Speed + Quality, no standalone speed button)
+// video.js – Watch Page (with Settings Menu: Speed + Quality)
 (function() {
     const video = document.getElementById('mainVideo');
     const playerWrapper = document.getElementById('playerWrapper');
@@ -57,7 +57,6 @@
     const settingsMenu = document.getElementById('settingsMenu');
     let currentQuality = '1080p';
 
-    // Quality mapping
     const qualitySources = {
         '8K': 'assets/vid_8k.mp4',
         '4K': 'assets/vid_4k.mp4',
@@ -68,7 +67,6 @@
         '360p': 'assets/vid_360p.mp4',
         '240p': 'assets/vid_240p.mp4'
     };
-    const originalSrc = video.querySelector('source')?.src || video.src || 'assets/vid.mp4';
 
     // Emoji list
     const emojiList = ['happy.png', 'sad.png', 'shocked.png', 'like.png', 'dislike.png', 'thank.png', 'angry.png', 'stupid.png', 'ok.png', 'iran.png'];
@@ -271,18 +269,15 @@
     shareCopyBtn.addEventListener('click', () => copyToClipboard(currentUrl));
     shareTwitter.addEventListener('click', (e) => {
         e.preventDefault();
-        const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent('Check this video!')}`;
-        window.open(twitterUrl, '_blank');
+        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent('Check this video!')}`, '_blank');
     });
     shareFacebook.addEventListener('click', (e) => {
         e.preventDefault();
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`;
-        window.open(fbUrl, '_blank');
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`, '_blank');
     });
     shareReddit.addEventListener('click', (e) => {
         e.preventDefault();
-        const redditUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(currentUrl)}`;
-        window.open(redditUrl, '_blank');
+        window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(currentUrl)}`, '_blank');
     });
 
     // ===== Ad Banner Close =====
@@ -355,34 +350,17 @@
         if (!emojiMenu.contains(e.target) && e.target !== emojiBtn) emojiMenu.classList.remove('active');
     });
 
-    // ===== Send Comment =====
-    sendCommentBtn.addEventListener('click', sendComment);
-    commentInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendComment();
-        }
-    });
-    function sendComment() {
-        const text = commentInput.value.trim();
-        if (!text) return;
-        if (text.length > 400) {
-            window.showToast('Comment too long (max 400 characters)');
-            return;
-        }
-        addComment('You', 'Just now', text);
-        commentInput.value = '';
-        commentInput.dispatchEvent(new Event('input'));
-    }
-    function addComment(author, time, text) {
+    // ===== Send Comment with verification badge =====
+    function addComment(author, time, text, verified = false) {
         const div = document.createElement('div');
         div.className = 'comment';
         div.setAttribute('data-comment-id', Date.now());
         const formattedText = replaceEmojis(text);
+        const verifiedBadge = verified ? `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
         div.innerHTML = `
             <div class="comment-avatar">${author[0]}</div>
             <div class="comment-body">
-                <div class="comment-author">${author} <span class="comment-time">${time}</span></div>
+                <div class="comment-author">${author}${verifiedBadge} <span class="comment-time">${time}</span></div>
                 <p>${formattedText}</p>
                 <div class="comment-actions-row">
                     <button class="comment-action-btn like-comment-btn">👍 <span>0</span></button>
@@ -399,6 +377,7 @@
         commentList.prepend(div);
         attachCommentListeners(div);
     }
+
     function attachCommentListeners(commentEl) {
         const toggleBtn = commentEl.querySelector('.reply-toggle-btn');
         const replyForm = commentEl.querySelector('.reply-form');
@@ -428,10 +407,26 @@
             }
         };
         replySendBtn.addEventListener('click', sendReply);
-        replyInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendReply();
-        });
+        replyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendReply(); });
     }
+
+    function sendComment() {
+        const text = commentInput.value.trim();
+        if (!text) return;
+        if (text.length > 400) {
+            window.showToast('Comment too long (max 400 characters)');
+            return;
+        }
+        // Assume the logged-in user is the channel owner (verified)
+        addComment('You', 'Just now', text, true);
+        commentInput.value = '';
+        commentInput.dispatchEvent(new Event('input'));
+    }
+
+    sendCommentBtn.addEventListener('click', sendComment);
+    commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } });
+
+    // Attach listeners to existing static comments (if any)
     document.querySelectorAll('.comment').forEach(c => attachCommentListeners(c));
 
     // ===== Related Videos =====
@@ -456,7 +451,6 @@
     renderRelated();
 
     // ========== SETTINGS MENU FUNCTIONALITY ==========
-    // Change video quality
     function changeQuality(quality) {
         if (!qualitySources[quality]) {
             window.showToast(`Quality file for ${quality} not found. Using default.`);
@@ -474,7 +468,6 @@
         }
         currentQuality = quality;
         
-        // Update active class on quality buttons
         document.querySelectorAll('.settings-quality-buttons button').forEach(btn => {
             if (btn.dataset.quality === quality) btn.classList.add('active');
             else btn.classList.remove('active');
@@ -482,33 +475,20 @@
         window.showToast(`Quality changed to ${quality}`);
     }
 
-    // Update active speed button in settings menu
-    function updateSettingsSpeedActive(speed) {
-        const settingsSpeedBtns = document.querySelectorAll('.settings-speed-buttons button');
-        settingsSpeedBtns.forEach(btn => {
-            if (parseFloat(btn.dataset.speed) === speed) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-    }
-
-    // Initialize quality buttons
     function initQualityButtons() {
         const qualityBtns = document.querySelectorAll('.settings-quality-buttons button');
         qualityBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const quality = btn.dataset.quality;
-                changeQuality(quality);
+                changeQuality(btn.dataset.quality);
                 settingsMenu.classList.remove('active');
             });
         });
-        // Set initial active based on currentQuality
         qualityBtns.forEach(btn => {
             if (btn.dataset.quality === currentQuality) btn.classList.add('active');
         });
     }
 
-    // Initialize settings speed buttons
     function initSettingsSpeedButtons() {
         const settingsSpeedBtns = document.querySelectorAll('.settings-speed-buttons button');
         settingsSpeedBtns.forEach(btn => {
@@ -516,34 +496,29 @@
                 e.stopPropagation();
                 const speed = parseFloat(btn.dataset.speed);
                 video.playbackRate = speed;
-                // Update active in settings
                 settingsSpeedBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 settingsMenu.classList.remove('active');
             });
         });
-        // Sync initial active with current speed (default 1)
         const currentSpeed = video.playbackRate;
         settingsSpeedBtns.forEach(btn => {
             if (parseFloat(btn.dataset.speed) === currentSpeed) btn.classList.add('active');
         });
     }
 
-    // Toggle settings menu
     if (settingsBtn) {
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             settingsMenu.classList.toggle('active');
         });
     }
-    // Close settings menu when clicking outside
     document.addEventListener('click', (e) => {
         if (settingsMenu && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
             settingsMenu.classList.remove('active');
         }
     });
 
-    // Detect current quality from video src (if different from default)
     function detectCurrentQualityFromSrc() {
         const currentSrc = video.currentSrc || video.src;
         for (const [quality, src] of Object.entries(qualitySources)) {
@@ -560,9 +535,18 @@
     }
     detectCurrentQualityFromSrc();
 
-    // Initialize all settings components
     if (settingsMenu) {
         initQualityButtons();
         initSettingsSpeedButtons();
     }
+
+    // Manually add verified badge to the static channel name in the HTML
+    // (This is already done in video.php, but if you want JS to ensure it, you can uncomment below)
+    // const channelNameSpan = document.querySelector('.channel-name');
+    // if (channelNameSpan && !channelNameSpan.querySelector('.verified-badge')) {
+    //     const badge = document.createElement('span');
+    //     badge.className = 'verified-badge';
+    //     badge.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+    //     channelNameSpan.appendChild(badge);
+    // }
 })();

@@ -394,3 +394,15 @@ ul, ol { list-style: none; }
     .featured-video-card { flex-direction: column; }
     .featured-thumb { width: 100%; }
 }
+
+/* Verified badge */
+.verified-badge {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    color: #c5c5c5;
+}
+.verified-badge svg {
+    width: 18px;
+    height: 18px;
+}

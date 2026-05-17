@@ -464,3 +464,15 @@ ul, ol { list-style: none; }
     .featured-section { height: 300px; }
     .featured-info h2 { font-size: 1.5rem; }
 }
+
+/* Verified badge */
+.verified-badge {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    color: #c5c5c5;
+}
+.verified-badge svg {
+    width: 18px;
+    height: 18px;
+}

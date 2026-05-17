@@ -493,3 +493,15 @@ input:checked + .slider:before { transform: translateX(20px); }
     .settings-container { flex-direction: column; }
     .settings-sidebar { width: 100%; position: static; border-radius: 16px; }
 }
+
+/* Add at the end of settings.css */
+.verified-badge {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    color: #c5c5c5;
+}
+.verified-badge svg {
+    width: 18px;
+    height: 18px;
+}

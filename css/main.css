@@ -289,8 +289,15 @@ ul, ol { list-style: none; }
 .video-card__info { padding: 14px; display: flex; gap: 12px; }
 .video-card__channel-img { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
 .video-card__text h3 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.video-card__text p { font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px; }
-
+.video-card__text p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+}
+.video-card__text p:first-of-type {
+    margin-bottom: 4px;
+}
 /* Post Card */
 .post-card { background: var(--card-bg); border-radius: 16px; padding: 18px; border: 1px solid var(--border-color); transition: transform 0.2s; cursor: pointer; }
 .post-card:hover { transform: translateY(-2px); }
@@ -460,4 +467,16 @@ ul, ol { list-style: none; }
     stroke: currentColor;
     stroke-width: 2;
     fill: none;
+}
+
+/* Verified badge */
+.verified-badge {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    color: #c5c5c5;
+}
+.verified-badge svg {
+    width: 18px;
+    height: 18px;
 }
