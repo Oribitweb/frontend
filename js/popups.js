@@ -1,4 +1,4 @@
-// popups.js – Handles popup forms and UI interactions
+// popups.js – Handles popup forms and UI interactions (UPDATED WITH TABS)
 (function() {
     const MAX_CHARS = 5000;
     const MAX_TAGS = 500;
@@ -20,7 +20,7 @@
         else window.showToast(message);
     }
 
-    // ===== Auth Forms (unchanged – assumed to work via window.loginUser etc.) =====
+    // ===== Auth Forms =====
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -135,19 +135,245 @@
         });
     }
 
+    // ========== NEW TABS FUNCTIONALITY ==========
+    let selectedGame = null;
+    let cards = [];
+    let endScreenElements = [];
+    let selectedPlaylist = '';
+    let adMarkers = [];
+    let videoFileForPreview = null;
+
+    // Helper to get game categories (from window.ORBIT_CATEGORIES or fallback)
+    function getGameCategories() {
+        if (window.ORBIT_CATEGORIES && Array.isArray(window.ORBIT_CATEGORIES)) {
+            return window.ORBIT_CATEGORIES;
+        }
+        // Fallback static categories
+        return [
+            { name: "Counter Strike 2", viewers: 492 },
+            { name: "PUBG MOBILE", viewers: 532 },
+            { name: "Open Front", viewers: 0 },
+            { name: "Dota 2", viewers: 81 },
+            { name: "Minecraft", viewers: 6000.9 },
+            { name: "Call of Duty Mobile", viewers: 9.5 },
+            { name: "Just Chatting", viewers: 58.5 },
+            { name: "FiveM", viewers: 1000.5 },
+            { name: "Music", viewers: 0.5 },
+            { name: "Science", viewers: 0.5 }
+        ];
+    }
+
+    function renderGameList(filter = '') {
+        const games = getGameCategories();
+        const filtered = games.filter(g => g.name.toLowerCase().includes(filter.toLowerCase()));
+        const gameListDiv = document.getElementById('gameList');
+        if (!gameListDiv) return;
+        gameListDiv.innerHTML = filtered.map(game => {
+            const slug = game.name.toLowerCase().replace(/\s+/g, '');
+            const thumbUrl = `assets/categories/${slug}.webp`;
+            const isSelected = selectedGame === game.name;
+            return `
+                <div class="game-item" data-game="${escapeHtml(game.name)}" style="display: flex; align-items: center; gap: 12px; padding: 8px; margin-bottom: 6px; border-radius: 8px; background: ${isSelected ? 'var(--accent-glow)' : 'transparent'}; cursor: pointer; transition: background 0.2s;">
+                    <img src="${thumbUrl}" alt="${escapeHtml(game.name)}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">
+                    <span><strong>${escapeHtml(game.name)}</strong><br><small>${game.viewers} viewers</small></span>
+                </div>
+            `;
+        }).join('');
+        // attach click events
+        document.querySelectorAll('.game-item').forEach(el => {
+            el.addEventListener('click', () => {
+                selectedGame = el.dataset.game;
+                document.getElementById('selectedGameName').innerText = selectedGame;
+                renderGameList(document.getElementById('gameSearchInput')?.value || '');
+            });
+        });
+    }
+
+    function toggleGameTab() {
+        const categorySelect = document.getElementById('category');
+        const gameTab = document.getElementById('tab-game');
+        if (categorySelect && gameTab) {
+            const isGaming = categorySelect.value === 'gaming';
+            gameTab.style.display = isGaming ? 'block' : 'none';
+            if (isGaming && !selectedGame) {
+                const games = getGameCategories();
+                if (games.length) selectedGame = games[0].name;
+                document.getElementById('selectedGameName').innerText = selectedGame || 'None';
+                renderGameList();
+            }
+        }
+    }
+
+    // Cards & End Screen
+    function renderCards() {
+        const container = document.getElementById('cardsList');
+        if (!container) return;
+        container.innerHTML = cards.map((card, idx) => `
+            <div class="card-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;">
+                <span><strong>${card.type === 'subscribe' ? 'Subscribe' : card.type === 'video' ? 'Recommended Video' : 'Channel Link'}</strong> @ ${card.timestamp}s</span>
+                <button type="button" class="remove-card" data-index="${idx}" style="background: none; border: none; color: #ff4444; cursor: pointer;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        `);
+        document.querySelectorAll('.remove-card').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.index);
+                cards.splice(idx, 1);
+                renderCards();
+            });
+        });
+    }
+
+    function renderEndScreen() {
+        const container = document.getElementById('endScreenElements');
+        if (!container) return;
+        container.innerHTML = endScreenElements.map((el, idx) => `
+            <div class="endscreen-item" style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;">
+                <span>${el.type === 'subscribe' ? 'Subscribe' : el.type === 'video' ? 'Best for viewer video' : 'Playlist'}</span>
+                <button type="button" class="remove-endscreen" data-index="${idx}" style="background: none; border: none; color: #ff4444; cursor: pointer;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        `);
+        document.querySelectorAll('.remove-endscreen').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.index);
+                endScreenElements.splice(idx, 1);
+                renderEndScreen();
+            });
+        });
+    }
+
+    // Playlist
+    function updatePlaylistInfo() {
+        const select = document.getElementById('playlistSelect');
+        const newName = document.getElementById('newPlaylistName');
+        if (select && newName) {
+            const final = select.value ? select.options[select.selectedIndex]?.text : (newName.value.trim() || 'None');
+            document.getElementById('finalPlaylistName').innerText = final;
+        }
+    }
+
+    // Ad timeline
+    function initAdPreview() {
+        const videoInput = document.getElementById('videoFileInput');
+        const adVideo = document.getElementById('adPreviewVideo');
+        if (videoInput && adVideo) {
+            videoInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('video/')) {
+                    videoFileForPreview = file;
+                    const url = URL.createObjectURL(file);
+                    adVideo.src = url;
+                    adVideo.load();
+                    adVideo.onloadedmetadata = () => {
+                        const duration = adVideo.duration;
+                        document.getElementById('adDuration').innerText = formatTime(duration);
+                    };
+                }
+            });
+        }
+        const timelineTrack = document.querySelector('.ad-timeline-track');
+        if (timelineTrack) {
+            timelineTrack.addEventListener('click', (e) => {
+                if (!adVideo || !adVideo.duration) return;
+                const rect = timelineTrack.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                const time = percent * adVideo.duration;
+                adVideo.currentTime = time;
+            });
+        }
+        adVideo?.addEventListener('timeupdate', () => {
+            if (adVideo.duration) {
+                const percent = (adVideo.currentTime / adVideo.duration) * 100;
+                document.querySelector('.ad-progress-fill').style.width = percent + '%';
+            }
+        });
+    }
+
+    function renderAdMarkers() {
+        const markersDiv = document.getElementById('adMarkers');
+        const listDiv = document.getElementById('adMarkersList');
+        if (!markersDiv) return;
+        markersDiv.innerHTML = '';
+        listDiv.innerHTML = '';
+        adMarkers.forEach((time, idx) => {
+            const percent = (time / (document.getElementById('adPreviewVideo')?.duration || 1)) * 100;
+            const marker = document.createElement('div');
+            marker.style.position = 'absolute';
+            marker.style.left = `calc(${percent}% - 3px)`;
+            marker.style.top = '-4px';
+            marker.style.width = '6px';
+            marker.style.height = '14px';
+            marker.style.background = '#ff9800';
+            marker.style.borderRadius = '2px';
+            marker.style.cursor = 'pointer';
+            marker.title = `Ad at ${formatTime(time)}`;
+            marker.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('Remove this ad marker?')) {
+                    adMarkers.splice(idx, 1);
+                    renderAdMarkers();
+                }
+            });
+            markersDiv.appendChild(marker);
+
+            const listItem = document.createElement('div');
+            listItem.style.background = 'var(--hover-bg)';
+            listItem.style.padding = '4px 12px';
+            listItem.style.borderRadius = '16px';
+            listItem.style.display = 'inline-flex';
+            listItem.style.alignItems = 'center';
+            listItem.style.gap = '8px';
+            listItem.innerHTML = `📍 ${formatTime(time)} <button data-idx="${idx}" style="background:none;border:none;color:#ff4444;cursor:pointer;">✖</button>`;
+            listDiv.appendChild(listItem);
+        });
+        document.querySelectorAll('#adMarkersList button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.idx);
+                adMarkers.splice(idx, 1);
+                renderAdMarkers();
+            });
+        });
+    }
+
+    function formatTime(sec) {
+        if (!sec) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    // Tab switching
+    function initUploadTabs() {
+        const tabBtns = document.querySelectorAll('.upload-tab-btn');
+        const panes = document.querySelectorAll('.upload-tab-pane');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.dataset.tab;
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                panes.forEach(pane => pane.classList.remove('active'));
+                document.getElementById(`tab-${targetTab}`).classList.add('active');
+                if (targetTab === 'game') toggleGameTab();
+                if (targetTab === 'ads') initAdPreview();
+            });
+        });
+    }
+
+    // ===== MAIN UPLOAD FORM SUBMIT =====
     const uploadForm = document.getElementById('uploadForm');
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // 1. Check login
             if (!window.currentUser) {
                 window.showToast('Please log in to upload videos.');
                 window.openPopupById('loginPopup');
                 return;
             }
 
-            // 2. Gather metadata
             const title = document.getElementById('videoTitle')?.value.trim();
             if (!title) {
                 window.showToast('Please enter a video title.');
@@ -159,30 +385,16 @@
             const visibility = visibilityRadio ? visibilityRadio.value : 'public';
             const scheduleInput = document.getElementById('schedule');
             let scheduled_at = scheduleInput?.value ? new Date(scheduleInput.value).toISOString() : null;
-
             const audienceRadio = document.querySelector('input[name="audience"]:checked');
-            let is_made_for_kids = false;
-            if (audienceRadio) {
-                if (audienceRadio.value === 'kids') is_made_for_kids = true;
-                else if (audienceRadio.value === 'not-kids') is_made_for_kids = false;
-            }
-
+            let is_made_for_kids = audienceRadio && audienceRadio.value === 'kids';
             const language = document.getElementById('language')?.value || 'en';
             const categorySelect = document.getElementById('category');
             const category_id = categorySelect ? parseInt(categorySelect.value) || null : null;
             const licenseRadio = document.querySelector('input[name="license"]:checked');
             const license = licenseRadio ? licenseRadio.value : 'standard';
             const commentsRadio = document.querySelector('input[name="comments"]:checked');
-            let allow_comments = true;
-            if (commentsRadio) {
-                if (commentsRadio.value === 'allow') allow_comments = true;
-                else if (commentsRadio.value === 'hide') allow_comments = false;
-                else allow_comments = true;
-            }
-
+            let allow_comments = commentsRadio ? commentsRadio.value === 'allow' : true;
             const tagsList = tags;
-
-            // Video file
             const videoFileInput = document.getElementById('videoFileInput');
             const videoFile = videoFileInput?.files[0];
             if (!videoFile) {
@@ -193,125 +405,69 @@
                 window.showToast('File too large. Max 500MB.');
                 return;
             }
-            if (!videoFile.type.startsWith('video/')) {
-                window.showToast('File must be a video.');
-                return;
-            }
-
-            // Thumbnail file (optional)
             const thumbInput = document.getElementById('thumbUploadInput');
             const thumbnailFile = thumbInput?.files[0] || null;
 
-            // Show progress container
+            // Additional data from new tabs
+            const gameData = (categorySelect.value === 'gaming') ? selectedGame : null;
+            const cardsData = cards;
+            const endScreenData = endScreenElements;
+            const playlistData = selectedPlaylist || document.getElementById('newPlaylistName')?.value.trim() || null;
+            const adMarkersData = adMarkers;
+
+            console.log('Upload with extra data:', { gameData, cardsData, endScreenData, playlistData, adMarkersData });
+
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
             if (progressContainer) progressContainer.style.display = 'flex';
-            if (progressFill) progressFill.style.width = '0%';
-            if (progressText) progressText.textContent = '0%';
-
             const submitBtn = uploadForm.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
 
-            // Declare variables OUTSIDE try block for proper scoping
-            let upload_url = null;
-            let object_key = null;
-
+            let upload_url = null, object_key = null;
             try {
-                // STEP 1: Get presigned upload URL
                 const filenameEncoded = encodeURIComponent(videoFile.name);
-                const presignedResponse = await window.authorizedFetch(
-                    `${API_BASE}/videos/upload-url?filename=${filenameEncoded}`
-                );
-
-                if (!presignedResponse.ok) {
-                    let errMsg = `Server error (${presignedResponse.status})`;
-                    try {
-                        const errorBody = await presignedResponse.json();
-                        if (Array.isArray(errorBody.detail)) {
-                            errMsg = errorBody.detail.map(e => e.msg).join('. ');
-                        } else if (typeof errorBody.detail === 'string') {
-                            errMsg = errorBody.detail;
-                        }
-                    } catch (_) {}
-
-                    if (presignedResponse.status === 401) {
-                        errMsg = 'You are not logged in. Please log in again.';
-                    }
-                    throw new Error(errMsg);
-                }
-
+                const presignedResponse = await window.authorizedFetch(`${API_BASE}/videos/upload-url?filename=${filenameEncoded}`);
+                if (!presignedResponse.ok) throw new Error(`Presign failed: ${presignedResponse.status}`);
                 const data = await presignedResponse.json();
                 upload_url = data.upload_url;
                 object_key = data.object_key;
-                console.log('Presigned URL obtained:', upload_url);
 
-                // STEP 2: Upload video file (PUT)
-                await uploadFileWithProgress(
-                    upload_url,
-                    videoFile,
-                    (percent, loaded, total) => {
-                        if (progressFill) progressFill.style.width = percent + '%';
-                        if (progressText) {
-                            const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
-                            const totalMB = (total / (1024 * 1024)).toFixed(1);
-                            progressText.textContent = `${percent}% (${loadedMB}MB / ${totalMB}MB)`;
-                        }
+                await uploadFileWithProgress(upload_url, videoFile, (percent, loaded, total) => {
+                    if (progressFill) progressFill.style.width = percent + '%';
+                    if (progressText) {
+                        const loadedMB = (loaded / (1024 * 1024)).toFixed(1);
+                        const totalMB = (total / (1024 * 1024)).toFixed(1);
+                        progressText.textContent = `${percent}% (${loadedMB}MB / ${totalMB}MB)`;
                     }
-                );
+                });
 
-                // STEP 3 (optional): Upload thumbnail
                 let thumbnail_key = null;
                 if (thumbnailFile) {
-                    const thumbResp = await window.authorizedFetch(
-                        `${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`
-                    );
+                    const thumbResp = await window.authorizedFetch(`${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`);
                     if (thumbResp.ok) {
                         const thumbData = await thumbResp.json();
                         await uploadFileWithProgress(thumbData.upload_url, thumbnailFile);
                         thumbnail_key = thumbData.object_key;
-                    } else {
-                        console.warn('Thumbnail upload URL request failed, continuing without thumbnail');
                     }
                 }
 
-                // STEP 4: Confirm upload and create video record
                 const completePayload = {
-                    title,
-                    description: description || null,
-                    original_filename: videoFile.name,
-                    file_size: videoFile.size,
-                    mime_type: videoFile.type,
-                    object_key,
-                    visibility,
-                    category_id,
-                    language,
-                    allow_comments,
-                    is_made_for_kids,
-                    is_short: false,
-                    scheduled_at,
-                    license,
-                    tags: tagsList,
-                    thumbnail_key
+                    title, description: description || null, original_filename: videoFile.name,
+                    file_size: videoFile.size, mime_type: videoFile.type, object_key, visibility,
+                    category_id, language, allow_comments, is_made_for_kids, is_short: false,
+                    scheduled_at, license, tags: tagsList, thumbnail_key,
+                    // extra fields (will be ignored by backend but stored for future)
+                    extra_game: gameData, extra_cards: cardsData, extra_endscreen: endScreenData,
+                    extra_playlist: playlistData, extra_ad_markers: adMarkersData
                 };
 
-                const completeResponse = await window.authorizedFetch(
-                    `${API_BASE}/videos/complete`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(completePayload)
-                    }
-                );
-
-                if (!completeResponse.ok) {
-                    let errData;
-                    try { errData = await completeResponse.json(); } catch (_) { }
-                    throw new Error(errData?.detail || `Confirmation failed (${completeResponse.status})`);
-                }
-
-                const completeData = await completeResponse.json();
-                window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – transcoding started.`);
+                const completeResponse = await window.authorizedFetch(`${API_BASE}/videos/complete`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(completePayload)
+                });
+                if (!completeResponse.ok) throw new Error(`Confirmation failed: ${completeResponse.status}`);
+                window.showToast(`✅ Upload complete! Transcoding started.`);
                 window.closeAllPopups();
                 uploadForm.reset();
                 if (descriptionDiv) descriptionDiv.innerHTML = '';
@@ -320,20 +476,27 @@
                 renderTags();
                 const videoFileNameSpan = document.getElementById('videoFileName');
                 if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
-                if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
+                // reset new tabs data
+                selectedGame = null;
+                cards = [];
+                endScreenElements = [];
+                selectedPlaylist = '';
+                adMarkers = [];
+                renderCards();
+                renderEndScreen();
+                renderAdMarkers();
+                if (window.fetchCurrentUser) window.fetchCurrentUser();
             } catch (err) {
-                console.error('Upload error:', err);
+                console.error(err);
                 window.showToast(`Upload failed: ${err.message}`);
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
                 if (progressContainer) progressContainer.style.display = 'none';
-                if (progressFill) progressFill.style.width = '0%';
-                if (progressText) progressText.textContent = '0%';
             }
         });
     }
 
-    // ===== Short Video Upload (placeholder – adjust similarly if needed) =====
+    // ===== Short Video Upload =====
     const shortForm = document.getElementById('shortForm');
     if (shortForm) {
         shortForm.addEventListener('submit', (e) => {
@@ -534,5 +697,101 @@
                 reader.readAsDataURL(file);
             }
         });
+    }
+
+    // ===== Initialize new tabs functionality =====
+    function initNewTabs() {
+        initUploadTabs();
+        const categoryEl = document.getElementById('category');
+        if (categoryEl) {
+            categoryEl.addEventListener('change', toggleGameTab);
+            toggleGameTab();
+        }
+        const gameSearch = document.getElementById('gameSearchInput');
+        if (gameSearch) gameSearch.addEventListener('input', (e) => renderGameList(e.target.value));
+
+        // Cards
+        const addCardBtn = document.getElementById('addCardBtn');
+        if (addCardBtn) {
+            addCardBtn.addEventListener('click', () => {
+                const type = document.getElementById('cardTypeSelect').value;
+                const timestamp = parseInt(document.getElementById('cardTimestamp').value);
+                if (isNaN(timestamp)) {
+                    window.showToast('Please enter a valid timestamp');
+                    return;
+                }
+                cards.push({ type, timestamp });
+                renderCards();
+                document.getElementById('cardTimestamp').value = '';
+            });
+        }
+        const addEndScreenBtn = document.getElementById('addEndScreenBtn');
+        if (addEndScreenBtn) {
+            addEndScreenBtn.addEventListener('click', () => {
+                const type = document.getElementById('endScreenTypeSelect').value;
+                endScreenElements.push({ type });
+                renderEndScreen();
+            });
+        }
+
+        // Playlist
+        const playlistSelect = document.getElementById('playlistSelect');
+        const newPlaylistName = document.getElementById('newPlaylistName');
+        const createPlaylistBtn = document.getElementById('createPlaylistBtn');
+        if (playlistSelect) playlistSelect.addEventListener('change', () => {
+            selectedPlaylist = playlistSelect.value;
+            updatePlaylistInfo();
+        });
+        if (newPlaylistName) newPlaylistName.addEventListener('input', updatePlaylistInfo);
+        if (createPlaylistBtn) {
+            createPlaylistBtn.addEventListener('click', () => {
+                const name = newPlaylistName.value.trim();
+                if (name) {
+                    const option = document.createElement('option');
+                    option.value = name.toLowerCase().replace(/\s/g, '_');
+                    option.textContent = name;
+                    playlistSelect.appendChild(option);
+                    playlistSelect.value = option.value;
+                    selectedPlaylist = option.value;
+                    updatePlaylistInfo();
+                    newPlaylistName.value = '';
+                    window.showToast(`Playlist "${name}" created`);
+                }
+            });
+        }
+
+        // Ad markers
+        const addAdBtn = document.getElementById('addAdMarkerBtn');
+        if (addAdBtn) {
+            addAdBtn.addEventListener('click', () => {
+                let time = parseFloat(document.getElementById('adTimestamp').value);
+                const videoEl = document.getElementById('adPreviewVideo');
+                if (isNaN(time) && videoEl && videoEl.currentTime) {
+                    time = videoEl.currentTime;
+                }
+                if (isNaN(time) || time < 0) {
+                    window.showToast('Enter a valid time (seconds)');
+                    return;
+                }
+                if (videoEl && time > videoEl.duration) {
+                    window.showToast('Time exceeds video duration');
+                    return;
+                }
+                adMarkers.push(time);
+                adMarkers.sort((a,b) => a-b);
+                renderAdMarkers();
+                document.getElementById('adTimestamp').value = '';
+            });
+        }
+        renderCards();
+        renderEndScreen();
+        renderAdMarkers();
+    }
+
+    // Run after DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNewTabs);
+    } else {
+        initNewTabs();
     }
 })();

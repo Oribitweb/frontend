@@ -117,9 +117,9 @@
     </div>
 </div>
 
-<!-- UPLOAD VIDEO POPUP -->
+<!-- UPLOAD VIDEO POPUP (UPDATED WITH TABS) -->
 <div class="popup" id="uploadPopup" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
-    <div class="popup__panel popup__panel--upload">
+    <div class="popup__panel popup__panel--upload" style="width: 800px; max-width: 95vw;">
         <button class="popup__close" data-close="uploadPopup" aria-label="Close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -129,129 +129,252 @@
         <h2 class="popup__title" id="uploadTitle">Upload Video</h2>
         <p class="popup__subtitle">Share your content with the universe</p>
 
+        <!-- TAB BAR -->
+        <div class="upload-tabs" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px;">
+            <button class="upload-tab-btn active" data-tab="info">Video Info</button>
+            <button class="upload-tab-btn" data-tab="game">Game Category</button>
+            <button class="upload-tab-btn" data-tab="cards">Cards & End Screen</button>
+            <button class="upload-tab-btn" data-tab="playlist">Playlist</button>
+            <button class="upload-tab-btn" data-tab="ads">Ad Placement</button>
+        </div>
+
         <form class="popup__form upload-form" id="uploadForm" novalidate>
-            <fieldset class="form-section">
-                <legend class="form-section__title">Details</legend>
-                <div class="input-group">
-                    <label for="videoTitle">Title <span class="required">*</span></label>
-                    <input type="text" id="videoTitle" placeholder="Add a catchy title" required>
-                </div>
-                <div class="input-group">
-                    <label for="videoDescription">Description</label>
-                    <div id="videoDescription" class="input-area" contenteditable="true" placeholder="Tell viewers about your video. Add #hashtags..."></div>
-                    <div class="char-counter" id="descCounter">0 / 5000</div>
-                </div>
-                <div class="input-group">
-                    <label>Thumbnail</label>
-                    <div class="thumbnail-options">
-                        <div class="file-upload-area thumbnail-box" id="thumbUploadArea">
-                            <input type="file" id="thumbUploadInput" accept="image/*" hidden>
-                            <div class="file-upload-area__icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <!-- TAB 1: VIDEO INFO (existing fields) -->
+            <div class="upload-tab-pane active" id="tab-info">
+                <fieldset class="form-section">
+                    <legend class="form-section__title">Details</legend>
+                    <div class="input-group">
+                        <label for="videoTitle">Title <span class="required">*</span></label>
+                        <input type="text" id="videoTitle" placeholder="Add a catchy title" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="videoDescription">Description</label>
+                        <div id="videoDescription" class="input-area" contenteditable="true" placeholder="Tell viewers about your video. Add #hashtags..."></div>
+                        <div class="char-counter" id="descCounter">0 / 5000</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Thumbnail</label>
+                        <div class="thumbnail-options">
+                            <div class="file-upload-area thumbnail-box" id="thumbUploadArea">
+                                <input type="file" id="thumbUploadInput" accept="image/*" hidden>
+                                <div class="file-upload-area__icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                </div>
+                                <p class="file-upload-area__text">Upload thumbnail</p>
                             </div>
-                            <p class="file-upload-area__text">Upload thumbnail</p>
+                            <button type="button" class="thumbnail-box thumbnail-box--frame" id="chooseFrameBtn">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
+                                <span>Choose from video</span>
+                            </button>
                         </div>
-                        <button type="button" class="thumbnail-box thumbnail-box--frame" id="chooseFrameBtn">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h.01M10 16h.01M14 16h.01M18 16h.01"/></svg>
-                            <span>Choose from video</span>
-                        </button>
                     </div>
-                </div>
-                <div class="input-group">
-                    <label>Visibility</label>
-                    <div class="radio-group">
-                        <label class="radio-item"><input type="radio" name="visibility" value="private"> <span>Private</span></label>
-                        <label class="radio-item"><input type="radio" name="visibility" value="unlisted"> <span>Unlisted</span></label>
-                        <label class="radio-item"><input type="radio" name="visibility" value="public" checked> <span>Public</span></label>
+                    <div class="input-group">
+                        <label>Visibility</label>
+                        <div class="radio-group">
+                            <label class="radio-item"><input type="radio" name="visibility" value="private"> <span>Private</span></label>
+                            <label class="radio-item"><input type="radio" name="visibility" value="unlisted"> <span>Unlisted</span></label>
+                            <label class="radio-item"><input type="radio" name="visibility" value="public" checked> <span>Public</span></label>
+                        </div>
                     </div>
-                </div>
-                <div class="input-group">
-                    <label for="schedule">Schedule (optional)</label>
-                    <input type="datetime-local" id="schedule" class="input--datetime">
-                </div>
-                <div class="input-group">
-                    <label>Audience</label>
-                    <div class="radio-group radio-group--vertical">
-                        <label class="radio-item"><input type="radio" name="audience" value="kids"> <span>Yes, it’s made for kids</span></label>
-                        <label class="radio-item"><input type="radio" name="audience" value="not-kids" checked> <span>No, it’s not made for kids</span></label>
-                        <label class="radio-item"><input type="radio" name="audience" value="not-sure"> <span>Not sure</span></label>
+                    <div class="input-group">
+                        <label for="schedule">Schedule (optional)</label>
+                        <input type="datetime-local" id="schedule" class="input--datetime">
                     </div>
-                </div>
-            </fieldset>
+                    <div class="input-group">
+                        <label>Audience</label>
+                        <div class="radio-group radio-group--vertical">
+                            <label class="radio-item"><input type="radio" name="audience" value="kids"> <span>Yes, it’s made for kids</span></label>
+                            <label class="radio-item"><input type="radio" name="audience" value="not-kids" checked> <span>No, it’s not made for kids</span></label>
+                            <label class="radio-item"><input type="radio" name="audience" value="not-sure"> <span>Not sure</span></label>
+                        </div>
+                    </div>
+                </fieldset>
 
-            <fieldset class="form-section">
-                <legend class="form-section__title">Video</legend>
-                <div class="input-group">
-                    <label>Video File <span class="required">*</span></label>
-                    <div class="file-upload-area" id="videoFileArea">
-                        <input type="file" id="videoFileInput" accept="video/*" hidden>
-                        <div class="file-upload-area__icon">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <fieldset class="form-section">
+                    <legend class="form-section__title">Video</legend>
+                    <div class="input-group">
+                        <label>Video File <span class="required">*</span></label>
+                        <div class="file-upload-area" id="videoFileArea">
+                            <input type="file" id="videoFileInput" accept="video/*" hidden>
+                            <div class="file-upload-area__icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </div>
+                            <p class="file-upload-area__text" id="videoFileName">Click to select a video file</p>
                         </div>
-                        <p class="file-upload-area__text" id="videoFileName">Click to select a video file</p>
                     </div>
-                </div>
-                <div class="progress-container" id="progressContainer" style="display: none;">
-                    <div class="progress-bar">
-                        <div class="progress-bar__fill" id="progressFill"></div>
+                    <div class="progress-container" id="progressContainer" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-bar__fill" id="progressFill"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">0%</span>
                     </div>
-                    <span class="progress-text" id="progressText">0%</span>
-                </div>
-            </fieldset>
+                </fieldset>
 
-            <fieldset class="form-section">
-                <legend class="form-section__title">Select</legend>
-                <div class="input-group">
-                    <label for="language">Language</label>
-                    <select id="language" class="select-input">
-                        <option value="en">English</option>
-                        <option value="fa">Persian</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="ar">Arabic</option>
-                        <option value="de">German</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="category">Category</label>
-                    <select id="category" class="select-input">
-                        <option value="entertainment">Entertainment</option>
-                        <option value="gaming">Gaming</option>
-                        <option value="music">Music</option>
-                        <option value="education">Education</option>
-                        <option value="science">Science & Technology</option>
-                        <option value="news">News & Politics</option>
-                        <option value="sports">Sports</option>
-                        <option value="travel">Travel & Events</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>License</label>
-                    <div class="radio-group">
-                        <label class="radio-item"><input type="radio" name="license" value="standard" checked> <span>Orbit Standard License</span></label>
-                        <label class="radio-item"><input type="radio" name="license" value="cc"> <span>Creative Commons</span></label>
+                <fieldset class="form-section">
+                    <legend class="form-section__title">Select</legend>
+                    <div class="input-group">
+                        <label for="language">Language</label>
+                        <select id="language" class="select-input">
+                            <option value="en">English</option>
+                            <option value="fa">Persian</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="ar">Arabic</option>
+                            <option value="de">German</option>
+                        </select>
                     </div>
-                </div>
-                <div class="input-group">
-                    <label>Comments</label>
-                    <div class="radio-group radio-group--vertical">
-                        <label class="radio-item"><input type="radio" name="comments" value="hold"> <span>Hold potentially inappropriate comments for review</span></label>
-                        <label class="radio-item"><input type="radio" name="comments" value="hide"> <span>Hide all inappropriate comments</span></label>
-                        <label class="radio-item"><input type="radio" name="comments" value="allow" checked> <span>Allow all comments</span></label>
+                    <div class="input-group">
+                        <label for="category">Category</label>
+                        <select id="category" class="select-input">
+                            <option value="entertainment">Entertainment</option>
+                            <option value="gaming">Gaming</option>
+                            <option value="music">Music</option>
+                            <option value="education">Education</option>
+                            <option value="science">Science & Technology</option>
+                            <option value="news">News & Politics</option>
+                            <option value="sports">Sports</option>
+                            <option value="travel">Travel & Events</option>
+                        </select>
                     </div>
-                </div>
-                <div class="input-group">
-                    <label>Tags</label>
-                    <div class="tag-section">
-                        <div class="tag-display" id="tagDisplay"></div>
-                        <div class="tag-input-row">
-                            <input type="text" id="tagInput" class="tag-input-simple" placeholder="Add a tag...">
-                            <button type="button" id="addTagBtn" class="btn btn--small btn--tag">Add</button>
+                    <div class="input-group">
+                        <label>License</label>
+                        <div class="radio-group">
+                            <label class="radio-item"><input type="radio" name="license" value="standard" checked> <span>Orbit Standard License</span></label>
+                            <label class="radio-item"><input type="radio" name="license" value="cc"> <span>Creative Commons</span></label>
                         </div>
-                        <div class="tag-counter" id="tagCounter">0 / 500 tags</div>
                     </div>
-                </div>
-            </fieldset>
+                    <div class="input-group">
+                        <label>Comments</label>
+                        <div class="radio-group radio-group--vertical">
+                            <label class="radio-item"><input type="radio" name="comments" value="hold"> <span>Hold potentially inappropriate comments for review</span></label>
+                            <label class="radio-item"><input type="radio" name="comments" value="hide"> <span>Hide all inappropriate comments</span></label>
+                            <label class="radio-item"><input type="radio" name="comments" value="allow" checked> <span>Allow all comments</span></label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Tags</label>
+                        <div class="tag-section">
+                            <div class="tag-display" id="tagDisplay"></div>
+                            <div class="tag-input-row">
+                                <input type="text" id="tagInput" class="tag-input-simple" placeholder="Add a tag...">
+                                <button type="button" id="addTagBtn" class="btn btn--small btn--tag">Add</button>
+                            </div>
+                            <div class="tag-counter" id="tagCounter">0 / 500 tags</div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- TAB 2: GAME CATEGORY (visible only when main category = gaming) -->
+            <div class="upload-tab-pane" id="tab-game" style="display: none;">
+                <fieldset class="form-section">
+                    <legend class="form-section__title">🎮 Select a Game</legend>
+                    <div class="input-group">
+                        <label>Search Game</label>
+                        <input type="text" id="gameSearchInput" class="admin-search-input" placeholder="Search games..." style="width:100%;">
+                    </div>
+                    <div class="game-list-container" style="max-height: 300px; overflow-y: auto; margin-top: 16px; border: 1px solid var(--border-color); border-radius: 12px; padding: 8px;">
+                        <div id="gameList"></div>
+                    </div>
+                    <div class="selected-game-info" style="margin-top: 16px; padding: 12px; background: var(--hover-bg); border-radius: 12px;">
+                        <span>Selected game: </span><strong id="selectedGameName">None</strong>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- TAB 3: CARDS & END SCREEN -->
+            <div class="upload-tab-pane" id="tab-cards" style="display: none;">
+                <fieldset class="form-section">
+                    <legend class="form-section__title">🃏 Cards (Subscribe, Video, Channel)</legend>
+                    <div id="cardsList" style="margin-bottom: 16px;"></div>
+                    <div class="add-card-form" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Card Type</label>
+                            <select id="cardTypeSelect" class="form-input">
+                                <option value="subscribe">Subscribe Button</option>
+                                <option value="video">Recommended Video</option>
+                                <option value="channel">Channel Link</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex:1;">
+                            <label>Timestamp (seconds)</label>
+                            <input type="number" id="cardTimestamp" class="form-input" placeholder="e.g., 30">
+                        </div>
+                        <button type="button" id="addCardBtn" class="btn btn--primary" style="margin-bottom: 10px;">Add Card</button>
+                    </div>
+                    <hr style="margin: 24px 0; border-color: var(--border-color);">
+                    <legend class="form-section__title">📺 End Screen Elements</legend>
+                    <div id="endScreenElements" style="margin-bottom: 16px;"></div>
+                    <div class="add-endscreen-form" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div class="input-group" style="flex:1;">
+                            <label>Element Type</label>
+                            <select id="endScreenTypeSelect" class="form-input">
+                                <option value="subscribe">Subscribe</option>
+                                <option value="video">Best for viewer video</option>
+                                <option value="playlist">Playlist</option>
+                            </select>
+                        </div>
+                        <button type="button" id="addEndScreenBtn" class="btn btn--primary">Add End Screen Element</button>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- TAB 4: PLAYLIST -->
+            <div class="upload-tab-pane" id="tab-playlist" style="display: none;">
+                <fieldset class="form-section">
+                    <legend class="form-section__title">📂 Add to Playlist</legend>
+                    <div class="input-group">
+                        <label>Select Playlist</label>
+                        <select id="playlistSelect" class="form-input">
+                            <option value="">-- Create new / Select existing --</option>
+                            <option value="fav">Favourites</option>
+                            <option value="gaming">Gaming Highlights</option>
+                            <option value="tutorials">Tutorials</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Or create new playlist</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="newPlaylistName" class="form-input" placeholder="New playlist name">
+                            <button type="button" id="createPlaylistBtn" class="btn btn--secondary">Create</button>
+                        </div>
+                    </div>
+                    <div id="selectedPlaylistInfo" style="margin-top: 16px; padding: 12px; background: var(--hover-bg); border-radius: 12px;">
+                        <span>Video will be added to: </span><strong id="finalPlaylistName">None</strong>
+                    </div>
+                </fieldset>
+            </div>
+
+            <!-- TAB 5: AD PLACEMENT -->
+            <div class="upload-tab-pane" id="tab-ads" style="display: none;">
+                <fieldset class="form-section">
+                    <legend class="form-section__title">💰 Mid‑roll Ad Placement</legend>
+                    <div class="video-preview-container" style="margin-bottom: 24px;">
+                        <video id="adPreviewVideo" controls style="width: 100%; border-radius: 12px; background: #000;"></video>
+                    </div>
+                    <div class="timeline-container" style="position: relative; margin: 20px 0;">
+                        <div class="ad-timeline-track" style="height: 6px; background: var(--input-border); border-radius: 3px; cursor: pointer; position: relative;">
+                            <div class="ad-progress-fill" style="width: 0%; height: 100%; background: var(--accent); border-radius: 3px;"></div>
+                            <div id="adMarkers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                            <span>0:00</span>
+                            <span id="adDuration">0:00</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Add ad at current time</label>
+                        <div style="display: flex; gap: 12px;">
+                            <input type="number" id="adTimestamp" class="form-input" placeholder="Seconds" step="1">
+                            <button type="button" id="addAdMarkerBtn" class="btn btn--primary">Add Marker</button>
+                        </div>
+                    </div>
+                    <div class="ad-markers-list" style="margin-top: 16px;">
+                        <label>Ad markers (click to remove):</label>
+                        <div id="adMarkersList" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
+                    </div>
+                </fieldset>
+            </div>
 
             <button type="submit" class="btn btn--primary btn--full">Upload Video</button>
         </form>
