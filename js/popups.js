@@ -1,8 +1,14 @@
 // popups.js – Handles popup forms and UI interactions
+// Includes WebSocket with first-message auth (works with HttpOnly cookies)
 (function() {
     const MAX_CHARS = 5000;
     const MAX_TAGS = 500;
     let tags = [];
+    
+    let activeWebSocket = null;
+    let uploadInProgress = false;
+    let wsToken = null; // Cached WebSocket token
+    let wsTokenExpiry = 0; // Timestamp when token expires
 
     // ===== Helper Functions =====
     function clearFormErrors(form) {
@@ -19,8 +25,286 @@
         if (target) target.textContent = message;
         else window.showToast(message);
     }
+    
+    function closeWebSocket() {
+        if (activeWebSocket) {
+            activeWebSocket.close();
+            activeWebSocket = null;
+        }
+    }
 
-    // ===== Auth Forms (unchanged – assumed to work via window.loginUser etc.) =====
+    /**
+     * Fetch a short-lived WebSocket token from the backend.
+     * Works with HttpOnly cookies because the browser sends them automatically.
+     */
+    async function getWebSocketToken() {
+        // Return cached token if still valid (with 30-second buffer)
+        if (wsToken && Date.now() < wsTokenExpiry - 30000) {
+            return wsToken;
+        }
+        
+        try {
+            const response = await window.authorizedFetch(`${API_BASE}/videos/ws-token`);
+            
+            if (!response.ok) {
+                console.error('Failed to fetch WebSocket token:', response.status);
+                return null;
+            }
+            
+            const data = await response.json();
+            wsToken = data.token;
+            wsTokenExpiry = Date.now() + (data.expires_in * 1000);
+            
+            console.log('WebSocket token obtained (expires in', data.expires_in, 's)');
+            return wsToken;
+        } catch (err) {
+            console.error('Error fetching WebSocket token:', err);
+            return null;
+        }
+    }
+
+    function showTopNotification(message, videoId) {
+        const existing = document.getElementById('video-ready-notification');
+        if (existing) existing.remove();
+
+        const bar = document.createElement('div');
+        bar.id = 'video-ready-notification';
+        bar.innerHTML = `
+            <div class="video-ready-notification-content">
+                <span>✅ ${message}</span>
+                <div class="notification-actions">
+                    <a href="/watch/${videoId}" class="btn btn-primary btn-sm">Watch Now</a>
+                    <button class="btn-close-notification" aria-label="Close">✕</button>
+                </div>
+            </div>
+        `;
+
+        Object.assign(bar.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            right: '0',
+            zIndex: '10000',
+            background: '#2e7d32',
+            color: 'white',
+            padding: '12px 20px',
+            textAlign: 'center',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            animation: 'slideDown 0.3s ease-out'
+        });
+
+        document.body.prepend(bar);
+
+        const closeBtn = bar.querySelector('.btn-close-notification');
+        closeBtn.addEventListener('click', () => {
+            bar.style.animation = 'slideUp 0.3s ease-in';
+            bar.addEventListener('animationend', () => bar.remove());
+        });
+
+        setTimeout(() => {
+            if (bar.parentNode) {
+                bar.style.animation = 'slideUp 0.3s ease-in';
+                bar.addEventListener('animationend', () => bar.remove());
+            }
+        }, 30000);
+    }
+
+    function injectNotificationStyles() {
+        if (document.getElementById('notification-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideDown {
+                from { transform: translateY(-100%); }
+                to { transform: translateY(0); }
+            }
+            @keyframes slideUp {
+                from { transform: translateY(0); }
+                to { transform: translateY(-100%); }
+            }
+            .video-ready-notification-content {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                max-width: 1200px;
+            }
+            .notification-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .btn-close-notification {
+                background: transparent;
+                border: none;
+                color: white;
+                font-size: 1.2em;
+                cursor: pointer;
+                padding: 0 5px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    injectNotificationStyles();
+
+    // ===== WebSocket with First-Message Authentication =====
+    async function connectToVideoStatus(videoId, onReady, onError) {
+        closeWebSocket();
+
+        // Fetch token from backend (works with HttpOnly cookies)
+        const token = await getWebSocketToken();
+        if (!token) {
+            console.error('Failed to get WebSocket token');
+            if (onError) onError('Not authenticated');
+            return;
+        }
+
+        try {
+            const apiUrl = new URL(API_BASE);
+            const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${apiUrl.host}/videos/ws/video/${videoId}`;
+
+            console.log('Connecting to WebSocket:', wsUrl);
+            const ws = new WebSocket(wsUrl);
+            activeWebSocket = ws;
+
+            let authTimeout;
+            let authenticated = false;
+
+            ws.onopen = () => {
+                console.log('WebSocket connected, sending auth...');
+                
+                // Send auth token as first message
+                ws.send(JSON.stringify({
+                    type: "auth",
+                    token: token
+                }));
+                
+                authTimeout = setTimeout(() => {
+                    if (!authenticated) {
+                        console.error('WebSocket authentication timeout');
+                        ws.close();
+                        if (onError) onError('Authentication timeout');
+                    }
+                }, 5000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('WebSocket message:', data);
+
+                    if (data.type === 'auth_ok') {
+                        clearTimeout(authTimeout);
+                        authenticated = true;
+                        console.log('WebSocket authenticated');
+                        
+                        const statusElement = document.getElementById('uploadStatus');
+                        if (statusElement) {
+                            statusElement.textContent = 'Processing video...';
+                            statusElement.className = 'upload-status processing';
+                        }
+                        return;
+                    }
+                    
+                    if (data.type === 'auth_error') {
+                        clearTimeout(authTimeout);
+                        console.error('WebSocket auth failed:', data.message);
+                        ws.close();
+                        if (onError) onError(data.message || 'Authentication failed');
+                        return;
+                    }
+
+                    if (!authenticated) {
+                        console.warn('Received message before auth, ignoring');
+                        return;
+                    }
+
+                    if (data.type === 'video.ready' && data.videoId === videoId) {
+                        console.log('Video ready!');
+                        
+                        const statusElement = document.getElementById('uploadStatus');
+                        if (statusElement) {
+                            statusElement.textContent = 'Video ready for playback!';
+                            statusElement.className = 'upload-status success';
+                        }
+                        
+                        closeWebSocket();
+                        if (onReady) onReady(videoId);
+                    } 
+                    else if (data.type === 'video.error') {
+                        console.error('Video error:', data.error);
+                        
+                        const statusElement = document.getElementById('uploadStatus');
+                        if (statusElement) {
+                            statusElement.textContent = `Processing failed: ${data.error}`;
+                            statusElement.className = 'upload-status error';
+                        }
+                        
+                        closeWebSocket();
+                        window.showToast(`❌ Video processing failed: ${data.error}`);
+                        if (onError) onError(data.error);
+                    }
+                } catch (err) {
+                    console.error('Error parsing message:', err);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                clearTimeout(authTimeout);
+                
+                const statusElement = document.getElementById('uploadStatus');
+                if (statusElement) {
+                    statusElement.textContent = 'Connection error';
+                    statusElement.className = 'upload-status error';
+                }
+            };
+
+            ws.onclose = (event) => {
+                console.log('WebSocket closed:', event.code, event.reason);
+                clearTimeout(authTimeout);
+                
+                // Don't reconnect on auth failures or intentional closes
+                if (event.code !== 1000 && event.code !== 1005 && event.code !== 4001 && activeWebSocket === ws) {
+                    console.log('Unexpected close, reconnecting...');
+                    setTimeout(() => {
+                        if (activeWebSocket === ws) {
+                            connectToVideoStatus(videoId, onReady, onError);
+                        }
+                    }, 3000);
+                }
+            };
+        } catch (err) {
+            console.error('Invalid API_BASE:', err);
+            if (onError) onError('Invalid API configuration');
+        }
+    }
+    
+    function showUploadProgress(show, status = 'uploading') {
+        const progressContainer = document.getElementById('progressContainer');
+        const uploadStatus = document.getElementById('uploadStatus');
+        
+        if (progressContainer) {
+            progressContainer.style.display = show ? 'flex' : 'none';
+        }
+        
+        if (uploadStatus) {
+            if (show) {
+                uploadStatus.style.display = 'block';
+                uploadStatus.textContent = status === 'uploading' ? 'Uploading video...' : 'Processing video...';
+                uploadStatus.className = `upload-status ${status}`;
+            } else {
+                uploadStatus.style.display = 'none';
+            }
+        }
+    }
+
+    // ===== Auth Forms =====
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -98,7 +382,6 @@
         });
     }
 
-    // ===== Switch between popups =====
     document.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -110,7 +393,6 @@
         else if (action === 'backToLogin') window.openPopupById('loginPopup');
     });
 
-    // ===== Helper: upload with progress (PUT method for presigned URLs) =====
     function uploadFileWithProgress(url, file, onProgress) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -139,15 +421,18 @@
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            if (uploadInProgress) {
+                window.showToast('Upload already in progress...');
+                return;
+            }
 
-            // 1. Check login
             if (!window.currentUser) {
                 window.showToast('Please log in to upload videos.');
                 window.openPopupById('loginPopup');
                 return;
             }
 
-            // 2. Gather metadata
             const title = document.getElementById('videoTitle')?.value.trim();
             if (!title) {
                 window.showToast('Please enter a video title.');
@@ -182,7 +467,6 @@
 
             const tagsList = tags;
 
-            // Video file
             const videoFileInput = document.getElementById('videoFileInput');
             const videoFile = videoFileInput?.files[0];
             if (!videoFile) {
@@ -198,27 +482,31 @@
                 return;
             }
 
-            // Thumbnail file (optional)
             const thumbInput = document.getElementById('thumbUploadInput');
             const thumbnailFile = thumbInput?.files[0] || null;
 
-            // Show progress container
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
             if (progressContainer) progressContainer.style.display = 'flex';
             if (progressFill) progressFill.style.width = '0%';
             if (progressText) progressText.textContent = '0%';
+            if (uploadStatus) {
+                uploadStatus.style.display = 'block';
+                uploadStatus.textContent = 'Preparing upload...';
+                uploadStatus.className = 'upload-status uploading';
+            }
 
             const submitBtn = uploadForm.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
+            uploadInProgress = true;
 
-            // Declare variables OUTSIDE try block for proper scoping
             let upload_url = null;
             let object_key = null;
 
             try {
-                // STEP 1: Get presigned upload URL
                 const filenameEncoded = encodeURIComponent(videoFile.name);
                 const presignedResponse = await window.authorizedFetch(
                     `${API_BASE}/videos/upload-url?filename=${filenameEncoded}`
@@ -234,7 +522,6 @@
                             errMsg = errorBody.detail;
                         }
                     } catch (_) {}
-
                     if (presignedResponse.status === 401) {
                         errMsg = 'You are not logged in. Please log in again.';
                     }
@@ -246,7 +533,7 @@
                 object_key = data.object_key;
                 console.log('Presigned URL obtained:', upload_url);
 
-                // STEP 2: Upload video file (PUT)
+                if (uploadStatus) uploadStatus.textContent = 'Uploading video...';
                 await uploadFileWithProgress(
                     upload_url,
                     videoFile,
@@ -260,9 +547,9 @@
                     }
                 );
 
-                // STEP 3 (optional): Upload thumbnail
                 let thumbnail_key = null;
                 if (thumbnailFile) {
+                    if (uploadStatus) uploadStatus.textContent = 'Uploading thumbnail...';
                     const thumbResp = await window.authorizedFetch(
                         `${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`
                     );
@@ -271,11 +558,11 @@
                         await uploadFileWithProgress(thumbData.upload_url, thumbnailFile);
                         thumbnail_key = thumbData.object_key;
                     } else {
-                        console.warn('Thumbnail upload URL request failed, continuing without thumbnail');
+                        console.warn('Thumbnail upload URL request failed');
                     }
                 }
 
-                // STEP 4: Confirm upload and create video record
+                if (uploadStatus) uploadStatus.textContent = 'Starting video processing...';
                 const completePayload = {
                     title,
                     description: description || null,
@@ -311,20 +598,92 @@
                 }
 
                 const completeData = await completeResponse.json();
-                window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – transcoding started.`);
-                window.closeAllPopups();
-                uploadForm.reset();
-                if (descriptionDiv) descriptionDiv.innerHTML = '';
-                if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
-                tags = [];
-                renderTags();
-                const videoFileNameSpan = document.getElementById('videoFileName');
-                if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
-                if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
+                console.log('Upload complete, video ID:', completeData.video_id);
+                
+                if (progressContainer) progressContainer.style.display = 'none';
+                if (progressFill) progressFill.style.width = '0%';
+                if (progressText) progressText.textContent = '0%';
+                
+                window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – Processing started.`);
+                
+                if (uploadStatus) {
+                    uploadStatus.textContent = 'Processing video... This may take a few minutes.';
+                    uploadStatus.className = 'upload-status processing';
+                }
+                
+                // Connect to WebSocket for real-time updates
+                connectToVideoStatus(
+                    completeData.video_id,
+                    async (videoId) => {
+                        console.log('Video ready:', videoId);
+                        
+                        try {
+                            const signedUrlResponse = await window.authorizedFetch(
+                                `${API_BASE}/videos/${videoId}/signed-url`
+                            );
+                            if (signedUrlResponse.ok) {
+                                const signedUrlData = await signedUrlResponse.json();
+                                window.lastSignedUrl = signedUrlData.signed_url;
+                            }
+                        } catch (err) {
+                            console.error('Error fetching signed URL:', err);
+                        }
+                        
+                        showTopNotification('Your video is ready!', videoId);
+                        
+                        const statusElement = document.getElementById('uploadStatus');
+                        if (statusElement) {
+                            statusElement.innerHTML = `
+                                <div class="processing-complete">
+                                    <span>✅ Video ready!</span>
+                                    <button onclick="window.location.href='/watch/${videoId}'" class="btn btn-primary btn-sm">
+                                        Watch Now
+                                    </button>
+                                </div>
+                            `;
+                            statusElement.className = 'upload-status success';
+                        }
+                        
+                        uploadForm.reset();
+                        if (descriptionDiv) descriptionDiv.innerHTML = '';
+                        if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
+                        tags = [];
+                        renderTags();
+                        const videoFileNameSpan = document.getElementById('videoFileName');
+                        if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
+                        if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
+                        
+                        uploadInProgress = false;
+                        if (submitBtn) submitBtn.disabled = false;
+                        
+                        setTimeout(() => {
+                            const statusEl = document.getElementById('uploadStatus');
+                            if (statusEl) statusEl.style.display = 'none';
+                        }, 10000);
+                    },
+                    (error) => {
+                        console.error('Video failed:', error);
+                        const statusElement = document.getElementById('uploadStatus');
+                        if (statusElement) {
+                            statusElement.textContent = `Processing failed: ${error}`;
+                            statusElement.className = 'upload-status error';
+                        }
+                        uploadInProgress = false;
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                );
+                
             } catch (err) {
                 console.error('Upload error:', err);
                 window.showToast(`Upload failed: ${err.message}`);
-            } finally {
+                
+                const statusElement = document.getElementById('uploadStatus');
+                if (statusElement) {
+                    statusElement.textContent = `Upload failed: ${err.message}`;
+                    statusElement.className = 'upload-status error';
+                }
+                
+                uploadInProgress = false;
                 if (submitBtn) submitBtn.disabled = false;
                 if (progressContainer) progressContainer.style.display = 'none';
                 if (progressFill) progressFill.style.width = '0%';
@@ -333,7 +692,7 @@
         });
     }
 
-    // ===== Short Video Upload (placeholder – adjust similarly if needed) =====
+    // ===== Short Video Upload =====
     const shortForm = document.getElementById('shortForm');
     if (shortForm) {
         shortForm.addEventListener('submit', (e) => {
@@ -439,7 +798,7 @@
         });
     }
 
-    // ===== Thumbnail & Video UI interactions =====
+    // ===== Thumbnail & Video UI =====
     const thumbUploadArea = document.getElementById('thumbUploadArea');
     const thumbUploadInput = document.getElementById('thumbUploadInput');
     if (thumbUploadArea) thumbUploadArea.addEventListener('click', () => thumbUploadInput.click());
@@ -520,7 +879,7 @@
         tagInput.addEventListener('keyup', (e) => { if (e.key === ',') addTag(tagInput.value.replace(',', '')); });
     }
 
-    // ===== Avatar Preview in Signup =====
+    // ===== Avatar Preview =====
     const avatarUploadArea = document.getElementById('avatarUpload');
     const avatarInput = document.getElementById('avatarInput');
     const avatarPreview = document.getElementById('avatarPreview');
@@ -535,4 +894,9 @@
             }
         });
     }
+    
+    // ===== Cleanup =====
+    window.addEventListener('beforeunload', () => {
+        closeWebSocket();
+    });
 })();
