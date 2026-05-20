@@ -41,7 +41,7 @@
             calculateUserStats();
             updateUI();
         } catch(err) {
-            currentUser = { id: 1, username: 'DemoCreator', subscribers: 342 };
+            currentUser = { id: 1, username: 'DemoCreator', subscribers: 593 };
             userVideos = generateMockVideos();
             calculateUserStats();
             updateUI();
@@ -130,7 +130,7 @@
                         <h3>Watch Time</h3>
                         <p>2,000 hours in last 365 days</p>
                     </div>
-                    <div class="requirement-value">${userStats.watchTimeHours} / 2000 hrs</div>
+                    <div class="requirement-value">${userStats.watchTimeHours}</div>
                 </div>
                 <div class="progress-liquid">
                     <div class="progress-liquid-bar">
