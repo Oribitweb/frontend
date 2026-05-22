@@ -4,16 +4,36 @@ $extraCSS = '<link rel="stylesheet" href="css/video.css">';
 $activePage = '';
 include 'includes/header.php';
 include 'includes/sidebar.php';
+
+$videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+// Video ID is passed to JS – if missing, the player will show an error gracefully.
 ?>
+
+<script>
+    window.VIDEO_ID = <?php echo $videoId; ?>;
+    window.API_BASE_URL = 'http://localhost:8000';
+    window.WS_BASE_URL = 'ws://localhost:8000';
+</script>
+<script src="js/hls.min.js"></script>
 
 <main class="watch-grid" id="watchGrid">
     <div class="watch-primary">
+        <!-- ===== Video Player ===== -->
         <div class="video-player" id="videoPlayerContainer">
             <div class="ambient-canvas-container">
                 <canvas id="ambientCanvas" class="ambient-canvas"></canvas>
             </div>
             <div class="player-wrapper" id="playerWrapper">
-                <div class="muted-indicator" id="mutedIndicator">
+                <!-- Hero Play Button -->
+                <div class="hero-play-btn" id="heroPlayBtn">
+                    <svg class="hero-play-icon" width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    <div class="hero-spinner"></div>
+                </div>
+
+                <!-- Muted Indicator (hidden by default) -->
+                <div class="muted-indicator" id="mutedIndicator" style="display: none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M3 9v6h4l5 5V4L7 9H3z"/>
                         <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/>
@@ -21,10 +41,11 @@ include 'includes/sidebar.php';
                     </svg>
                     <span>Muted</span>
                 </div>
-                <div class="video-title-overlay" id="videoTitleOverlay">Sample Video Title</div>
-                <video id="mainVideo" class="main-video" poster="assets/thumbnail.png" preload="metadata">
-                    <source src="assets/vid.mp4" type="video/mp4">
-                </video>
+
+                <!-- Video element (HLS source set by JS) -->
+                <video id="mainVideo" class="main-video" preload="auto" playsinline></video>
+
+                <!-- Custom Controls -->
                 <div class="custom-controls" id="customControls">
                     <div class="progress-container" id="progressContainer">
                         <div class="progress-hover-time" id="progressHoverTime">0:00</div>
@@ -49,7 +70,7 @@ include 'includes/sidebar.php';
                             <div class="volume-group">
                                 <button class="control-btn" id="volumeBtn" aria-label="Volume">
                                     <svg class="vol-on" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                                    <svg class="vol-off" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                                    <svg class="vol-off" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/></svg>
                                 </button>
                                 <div class="volume-slider-container">
                                     <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1">
@@ -75,14 +96,14 @@ include 'includes/sidebar.php';
                             </button>
                         </div>
                     </div>
-                    <!-- Settings Menu -->
+                    <!-- Settings Menu (dynamic quality buttons populated by JS) -->
                     <div class="settings-menu" id="settingsMenu">
                         <div class="settings-section">
                             <div class="settings-section-title">Playback Speed</div>
                             <div class="settings-speed-buttons">
                                 <button data-speed="0.5">0.5x</button>
                                 <button data-speed="0.75">0.75x</button>
-                                <button data-speed="1" class="active">1x</button>
+                                <button data-speed="1" class="active">Normal</button>
                                 <button data-speed="1.25">1.25x</button>
                                 <button data-speed="1.5">1.5x</button>
                                 <button data-speed="2">2x</button>
@@ -92,14 +113,7 @@ include 'includes/sidebar.php';
                         <div class="settings-section">
                             <div class="settings-section-title">Quality</div>
                             <div class="settings-quality-buttons" id="qualityButtons">
-                                <button data-quality="8K">8K</button>
-                                <button data-quality="4K">4K</button>
-                                <button data-quality="2K">2K</button>
-                                <button data-quality="1080p">1080p FHD</button>
-                                <button data-quality="720p">720p HD</button>
-                                <button data-quality="480p">480p SD</button>
-                                <button data-quality="360p">360p</button>
-                                <button data-quality="240p">240p</button>
+                                <button data-level="-1" class="active">Auto</button>
                             </div>
                         </div>
                     </div>
@@ -107,20 +121,25 @@ include 'includes/sidebar.php';
             </div>
         </div>
 
-        <h1 class="video-title">Sample Video Title - ORBIT Platform</h1>
+        <!-- Status message (processing / error) -->
+        <div class="video-status-message" id="statusMessage" style="display:none;"></div>
+
+        <!-- Video info (updated by JS) -->
+        <h1 class="video-title" id="videoTitle">Sample Video Title - ORBIT Platform</h1>
         <div class="video-meta">
             <span class="video-views">1.2M views</span>
             <span class="video-upload-time">2 days ago</span>
         </div>
 
+        <!-- Channel & Actions -->
         <div class="video-actions">
             <div class="channel-info">
                 <div class="channel-avatar">CN</div>
                 <div class="channel-text">
-                <span class="channel-name">
-                    Channel Name
-                    <span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
-                </span>
+                    <span class="channel-name">
+                        Channel Name
+                        <span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
+                    </span>
                     <span class="channel-subs">123K subscribers</span>
                 </div>
                 <button class="subscribe-btn" id="subscribeBtn">Subscribe</button>
@@ -149,6 +168,7 @@ include 'includes/sidebar.php';
             </div>
         </div>
 
+        <!-- Video Description -->
         <div class="video-description">
             <div class="desc-preview" id="descPreview">
                 <p>This is a sample video description. #ORBIT #Space #VideoPlatform</p>
@@ -156,6 +176,7 @@ include 'includes/sidebar.php';
             <button class="show-more-btn" id="showDescBtn">Show more</button>
         </div>
 
+        <!-- Comments Section -->
         <div class="comments-section">
             <div class="comments-header">
                 <h2>Comments <span class="comment-count">245</span></h2>
@@ -203,6 +224,7 @@ include 'includes/sidebar.php';
         </div>
     </div>
 
+    <!-- Watch Secondary (ad, related videos) -->
     <div class="watch-secondary">
         <div class="ad-banner-container" id="adBannerContainer">
             <a href="#" target="_blank" rel="nofollow sponsored">
@@ -219,6 +241,38 @@ include 'includes/sidebar.php';
         </div>
     </div>
 </main>
+
+<!-- ===== Full‑screen CSS ===== -->
+<style>
+    /* Ensure the player wrapper fills the screen and video covers it */
+    .player-wrapper:fullscreen {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        background: #000 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .player-wrapper:fullscreen .main-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;          /* removes black bars */
+    }
+    .player-wrapper:fullscreen .ambient-canvas-container {
+        display: none;              /* hide ambient canvas in full‑screen */
+    }
+
+    /* Controls fade effect */
+    .custom-controls {
+        transition: opacity 0.3s ease;
+    }
+    .controls-hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+</style>
 
 <!-- UNSUBSCRIBE POPUP -->
 <div class="popup" id="unsubscribePopup" role="dialog" aria-modal="true">
