@@ -829,57 +829,151 @@
         else playerWrapper.requestFullscreen().catch(()=>{});
     });
 
-    // --- Fullscreen controls auto-hide ---
+    // --- Timeline & Controls Auto-Hide/Show Behavior ---
     const controlsBar = document.getElementById('customControls');
-    let fullscreenHideTimer;
+    const progressContainer = document.getElementById('progressContainer');
+    let controlsHideTimer;
+    let isMouseOverVideo = false;
+
+    // Create shadow overlays dynamically
+    function createShadowOverlays() {
+        if (!playerWrapper) return;
+        
+        // Remove existing overlays if any
+        const existingOverlays = playerWrapper.querySelectorAll('.shadow-overlay');
+        existingOverlays.forEach(overlay => overlay.remove());
+        
+        // Create top shadow overlay
+        const topOverlay = document.createElement('div');
+        topOverlay.className = 'shadow-overlay shadow-overlay-top';
+        
+        // Create bottom shadow overlay
+        const bottomOverlay = document.createElement('div');
+        bottomOverlay.className = 'shadow-overlay shadow-overlay-bottom';
+        
+        // Insert overlays into player wrapper
+        playerWrapper.appendChild(topOverlay);
+        playerWrapper.appendChild(bottomOverlay);
+    }
+
+    // Initialize shadow overlays
+    createShadowOverlays();
+
+    // Get references to shadow overlays
+    const shadowOverlays = {
+        top: playerWrapper?.querySelector('.shadow-overlay-top'),
+        bottom: playerWrapper?.querySelector('.shadow-overlay-bottom')
+    };
+
     function showControls() {
-        if (controlsBar) controlsBar.classList.remove('controls-hidden');
-        if (playerWrapper) playerWrapper.style.cursor = '';
-        clearTimeout(fullscreenHideTimer);
+        if (controlsBar) {
+            controlsBar.classList.remove('controls-hidden');
+        }
+        if (progressContainer) {
+            progressContainer.style.opacity = '1';
+        }
+        if (playerWrapper) {
+            playerWrapper.style.cursor = '';
+        }
+        
+        // Show shadow overlays
+        if (shadowOverlays.top) {
+            shadowOverlays.top.classList.remove('shadow-overlay-hidden');
+        }
+        if (shadowOverlays.bottom) {
+            shadowOverlays.bottom.classList.remove('shadow-overlay-hidden');
+        }
+        
+        clearTimeout(controlsHideTimer);
     }
-    function hideControlsAfterDelay() {
-        if (!document.fullscreenElement || document.fullscreenElement !== playerWrapper) return;
-        clearTimeout(fullscreenHideTimer);
-        fullscreenHideTimer = setTimeout(() => {
-            if (controlsBar) controlsBar.classList.add('controls-hidden');
-            if (playerWrapper) playerWrapper.style.cursor = 'none';
-        }, 3000);
+
+    function hideControls() {
+        // Don't hide if video is paused
+        if (video.paused) return;
+        
+        if (controlsBar) {
+            controlsBar.classList.add('controls-hidden');
+        }
+        if (progressContainer) {
+            progressContainer.style.opacity = '0';
+        }
+        
+        // Hide shadow overlays
+        if (shadowOverlays.top) {
+            shadowOverlays.top.classList.add('shadow-overlay-hidden');
+        }
+        if (shadowOverlays.bottom) {
+            shadowOverlays.bottom.classList.add('shadow-overlay-hidden');
+        }
+        
+        // Hide cursor in fullscreen mode
+        if (document.fullscreenElement === playerWrapper) {
+            if (playerWrapper) {
+                playerWrapper.style.cursor = 'none';
+            }
+        }
     }
+
+    function resetControlsTimer() {
+        clearTimeout(controlsHideTimer);
+        
+        // Only set timer if video is playing (not paused)
+        if (!video.paused) {
+            controlsHideTimer = setTimeout(hideControls, 3000);
+        }
+    }
+
+    // Show controls on mouse movement within video container
     if (playerWrapper) {
         playerWrapper.addEventListener('mousemove', () => {
-            if (document.fullscreenElement === playerWrapper) {
-                showControls();
-                hideControlsAfterDelay();
+            showControls();
+            resetControlsTimer();
+        });
+        
+        // Hide controls when mouse leaves the video area
+        playerWrapper.addEventListener('mouseleave', () => {
+            isMouseOverVideo = false;
+            if (!video.paused) {
+                controlsHideTimer = setTimeout(hideControls, 1000); // Faster hide when mouse leaves
             }
         });
+        
+        // Show controls when mouse enters
+        playerWrapper.addEventListener('mouseenter', () => {
+            isMouseOverVideo = true;
+            showControls();
+            resetControlsTimer();
+        });
     }
+
+    // Handle play/pause events for controls visibility
+    video.addEventListener('play', () => {
+        // Start the auto-hide timer when video starts playing
+        resetControlsTimer();
+    });
+
+    video.addEventListener('pause', () => {
+        // Always show controls when paused
+        showControls();
+        // Clear any pending hide timer
+        clearTimeout(controlsHideTimer);
+    });
+
+    // Handle fullscreen changes
     document.addEventListener('fullscreenchange', () => {
         if (!document.fullscreenElement) {
+            // Exited fullscreen
             showControls();
-            clearTimeout(fullscreenHideTimer);
+            clearTimeout(controlsHideTimer);
+            if (playerWrapper) {
+                playerWrapper.style.cursor = '';
+            }
         } else if (document.fullscreenElement === playerWrapper) {
-            hideControlsAfterDelay();
+            // Entered fullscreen
+            showControls();
+            resetControlsTimer();
         }
     });
-
-    // --- Settings menu toggle ---
-    if (settingsBtn && settingsMenu) {
-        settingsBtn.addEventListener('click', e => { e.stopPropagation(); settingsMenu.classList.toggle('active'); });
-        document.addEventListener('click', e => { if (!settingsMenu.contains(e.target) && e.target!==settingsBtn) settingsMenu.classList.remove('active'); });
-    }
-
-    // --- Speed buttons ---
-    document.querySelectorAll('.settings-speed-buttons button').forEach(btn => {
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            video.playbackRate = parseFloat(btn.dataset.speed);
-            document.querySelectorAll('.settings-speed-buttons button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            settingsMenu?.classList.remove('active');
-            window.showToast(`Speed: ${btn.dataset.speed}x`);
-        });
-    });
-
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', e => {
         if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
