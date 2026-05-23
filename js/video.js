@@ -21,8 +21,13 @@
     const statusMessageDiv = document.getElementById('statusMessage');
     const videoTitle = document.getElementById('videoTitle');
     const videoDescription = document.getElementById('videoDescription');
-    const videoStats = document.getElementById('videoStats');
-    const videoChannel = document.getElementById('videoChannel'); // may not exist
+    const videoViews = document.querySelector('.video-views');
+    const videoUploadTime = document.querySelector('.video-upload-time');
+    const videoChannel = document.getElementById('videoChannel');
+    const channelName = document.querySelector('.channel-name');
+    const channelSubs = document.querySelector('.channel-subs');
+    const channelAvatar = document.querySelector('.channel-avatar');
+    const descPreview = document.getElementById('descPreview');
 
     // Controls
     const playBtn = document.getElementById('playBtn');
@@ -32,7 +37,6 @@
     const progressCurrent = document.getElementById('progressCurrent');
     const progressLoaded = document.getElementById('progressLoaded');
     const progressThumb = document.getElementById('progressThumb');
-    const progressHoverTime = document.getElementById('progressHoverTime');
     const timeDisplay = document.getElementById('timeDisplay');
     const volumeBtn = document.getElementById('volumeBtn');
     const volumeSlider = document.getElementById('volumeSlider');
@@ -102,33 +106,157 @@
         };
     }
 
+    // --- Helper: Format relative time ---
+    function timeAgo(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        let interval = Math.floor(seconds / 31536000);
+        if (interval >= 1) return interval + ' year' + (interval > 1 ? 's' : '') + ' ago';
+        
+        interval = Math.floor(seconds / 2592000);
+        if (interval >= 1) return interval + ' month' + (interval > 1 ? 's' : '') + ' ago';
+        
+        interval = Math.floor(seconds / 86400);
+        if (interval >= 1) return interval + ' day' + (interval > 1 ? 's' : '') + ' ago';
+        
+        interval = Math.floor(seconds / 3600);
+        if (interval >= 1) return interval + ' hour' + (interval > 1 ? 's' : '') + ' ago';
+        
+        interval = Math.floor(seconds / 60);
+        if (interval >= 1) return interval + ' minute' + (interval > 1 ? 's' : '') + ' ago';
+        
+        return 'Just now';
+    }
+
+    // --- Format duration ---
+    function formatDuration(totalSeconds) {
+        if (!totalSeconds) return '';
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // --- Format views ---
+    function formatViews(views) {
+        if (!views && views !== 0) return '0 views';
+        if (views >= 1000000) {
+            return (views / 1000000).toFixed(1).replace(/\.0$/, '') + 'M views';
+        }
+        if (views >= 1000) {
+            return (views / 1000).toFixed(1).replace(/\.0$/, '') + 'K views';
+        }
+        return views + ' view' + (views !== 1 ? 's' : '');
+    }
+
+    // --- Update UI with metadata ---
+    function updateVideoInfo(metadata) {
+        // Title
+        if (videoTitle) {
+            videoTitle.textContent = metadata.title || 'Untitled Video';
+        }
+        
+        // Description
+        if (videoDescription) {
+            videoDescription.textContent = metadata.description || 'No description available.';
+        }
+        
+        // Description preview (with hashtags)
+        if (descPreview) {
+            descPreview.innerHTML = `<p>${(metadata.description || 'No description available.').replace(/#[\w\u0600-\u06FF]+/g, m => `<span class="hashtag">${m}</span>`)}</p>`;
+        }
+        
+        // Views and upload time
+        if (videoViews) {
+            videoViews.textContent = formatViews(metadata.views || 0);
+        }
+        
+        if (videoUploadTime) {
+            if (metadata.published_at || metadata.created_at) {
+                const dateToShow = metadata.published_at || metadata.created_at;
+                videoUploadTime.textContent = timeAgo(dateToShow);
+            }
+        }
+        
+        // Channel info
+        if (channelName) {
+            const channelNameText = channelName.childNodes[0];
+            if (channelNameText && channelNameText.nodeType === 3) {
+                channelNameText.textContent = metadata.channel_name || 'Channel';
+            } else {
+                channelName.innerHTML = (metadata.channel_name || 'Channel') + ' ' + channelName.innerHTML.replace(/^[^<]*/, '');
+            }
+        }
+        
+        if (channelSubs && metadata.channel_id) {
+            channelSubs.textContent = '123K subscribers';
+        }
+        
+        if (channelAvatar && metadata.channel_name) {
+            channelAvatar.textContent = metadata.channel_name.substring(0, 2).toUpperCase();
+        }
+        
+        if (videoChannel && metadata.channel_id) {
+            videoChannel.innerHTML = `<span>Channel #${metadata.channel_id}</span>`;
+        }
+        
+        // Video thumbnail/poster
+        if (metadata.thumbnail_url) {
+            video.poster = metadata.thumbnail_url;
+        }
+        
+        // Update page title
+        if (metadata.title) {
+            document.title = `${metadata.title} - ORBIT`;
+        }
+        
+        console.log('Video metadata loaded:', metadata);
+    }
+
     // --- Fetch video metadata ---
     async function fetchVideoMetadata() {
         try {
             const url = `${API_BASE}/videos/${VIDEO_ID}`;
+            console.log('Fetching video metadata from:', url);
+            
             const res = await fetch(url, {
                 credentials: 'include',
                 headers: { 'Accept': 'application/json' }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            
             const data = await res.json();
             videoMetadata = data;
-
-            if (videoTitle) videoTitle.textContent = data.title || 'Untitled';
-            if (videoDescription) videoDescription.textContent = data.description || 'No description.';
-            if (videoStats && data.created_at) {
-                videoStats.textContent = `${data.views || 0} views • ${new Date(data.created_at).toLocaleDateString()}`;
-            }
-            if (videoChannel && data.channel_id) {
-                videoChannel.innerHTML = `<span>Channel #${data.channel_id}</span>`;
-            }
+            
+            // Update all UI elements with metadata
+            updateVideoInfo(data);
+            
             return data;
         } catch (err) {
             console.error('Failed to fetch video metadata:', err);
             window.showToast(`Error loading video info: ${err.message}`);
             if (videoTitle) videoTitle.textContent = `Video #${VIDEO_ID}`;
+            if (videoDescription) videoDescription.textContent = 'Unable to load video description.';
+            if (descPreview) descPreview.innerHTML = '<p>Unable to load video description.</p>';
             return null;
         }
+    }
+
+    // --- Refresh metadata (for WebSocket updates) ---
+    async function refreshMetadata() {
+        console.log('Refreshing video metadata...');
+        const metadata = await fetchVideoMetadata();
+        if (metadata) {
+            videoMetadata = metadata;
+        }
+        return metadata;
     }
 
     // --- Sprite VTT parsing & preview ---
@@ -369,25 +497,84 @@
 
     // --- WebSocket for processing updates ---
     let ws = null;
+    let wsReconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+
     function tryConnectWebSocket() {
         if (ws && ws.readyState === WebSocket.OPEN) return;
+        
         fetch(`${API_BASE}/ws-token`, { credentials: 'include' })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to get WS token');
+                return res.json();
+            })
             .then(({ token }) => {
                 ws = new WebSocket(`${WS_BASE}/ws/video/${VIDEO_ID}`);
-                ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }));
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    wsReconnectAttempts = 0;
+                    ws.send(JSON.stringify({ type: 'auth', token }));
+                };
+                
                 ws.onmessage = (event) => {
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === 'video.ready') {
-                        window.showToast('Video is now ready!');
-                        setTimeout(() => location.reload(), 1000);
-                    } else if (msg.type === 'video.error') {
-                        showStatusMessage('failed', msg.error);
-                        setHeroState('hidden');
+                    try {
+                        const msg = JSON.parse(event.data);
+                        console.log('WebSocket message:', msg);
+                        
+                        switch (msg.type) {
+                            case 'video.ready':
+                                window.showToast('Video is now ready!');
+                                refreshMetadata().then(() => {
+                                    if (videoMetadata && videoMetadata.status === 'ready') {
+                                        showStatusMessage('ready');
+                                        setHeroState('loading');
+                                        loadHLSStream();
+                                    }
+                                });
+                                break;
+                                
+                            case 'video.processing':
+                                showStatusMessage('processing');
+                                break;
+                                
+                            case 'video.error':
+                                showStatusMessage('failed', msg.error);
+                                setHeroState('hidden');
+                                break;
+                                
+                            case 'video.updated':
+                                refreshMetadata();
+                                break;
+                        }
+                    } catch (err) {
+                        console.error('Error handling WS message:', err);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = (event) => {
+                    console.log('WebSocket closed:', event.code, event.reason);
+                    
+                    if (videoMetadata && videoMetadata.status === 'processing' && wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                        wsReconnectAttempts++;
+                        const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000);
+                        console.log(`Reconnecting in ${delay/1000}s (attempt ${wsReconnectAttempts})`);
+                        setTimeout(tryConnectWebSocket, delay);
                     }
                 };
             })
-            .catch(err => console.warn('WebSocket init failed', err));
+            .catch(err => {
+                console.warn('WebSocket init failed:', err);
+                if (videoMetadata && videoMetadata.status === 'processing' && wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    wsReconnectAttempts++;
+                    const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000);
+                    setTimeout(tryConnectWebSocket, delay);
+                }
+            });
     }
 
     function showStatusMessage(status, errorMsg = null) {
@@ -422,38 +609,167 @@
         });
     }
 
-    // --- Progress bar with sprite preview ---
-    if (progressTrack) {
-        progressTrack.addEventListener('click', e => {
-            e.stopPropagation();
-            if (!video.duration || !isFinite(video.duration)) return;
-            const rect = progressTrack.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            video.currentTime = percent * video.duration;
-        });
+    // Replace the existing progressTrack event listeners with this block:
 
-        let hoverTimeout;
-        progressTrack.addEventListener('mousemove', e => {
-            if (!video.duration || !isFinite(video.duration)) return;
-            const rect = progressTrack.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            const time = percent * video.duration;
+    // --- Progress bar: drag to seek, hover thumbnail, click to seek ---
+    let hoverTimeout;
+    let isDragging = false;
 
-            if (progressHoverTime) {
-                progressHoverTime.style.left = `${e.clientX - rect.left}px`;
-                progressHoverTime.textContent = fmtTime(time);
-                progressHoverTime.style.display = 'block';
-            }
-            showThumbnailAtTime(time, e.clientX - playerWrapper.getBoundingClientRect().left);
-        });
+    // Mouse down on progress track or thumb - start dragging
+    progressTrack.addEventListener('mousedown', (e) => {
+        if (!video.duration || !isFinite(video.duration)) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        isDragging = true;
+        
+        // Seek immediately on mousedown
+        seekToPosition(e);
+        
+        // Add global event listeners for dragging
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+    });
 
-        progressTrack.addEventListener('mouseleave', () => {
-            if (progressHoverTime) progressHoverTime.style.display = 'none';
-            hideThumbnail();
-            if (hoverTimeout) clearTimeout(hoverTimeout);
-        });
+    // Touch events for mobile
+    progressTrack.addEventListener('touchstart', (e) => {
+        if (!video.duration || !isFinite(video.duration)) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        isDragging = true;
+        
+        // Seek immediately on touch
+        seekToPosition(e.touches[0]);
+        
+        document.addEventListener('touchmove', handleTouchDrag, { passive: false });
+        document.addEventListener('touchend', stopTouchDrag);
+    });
+
+    function seekToPosition(e) {
+        const rect = progressTrack.getBoundingClientRect();
+        const clientX = e.clientX !== undefined ? e.clientX : e.clientX;
+        const percent = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+        const seekTime = percent * video.duration;
+        
+        // Update video time
+        video.currentTime = seekTime;
+        
+        // Update progress bar UI
+        updateProgressUI(percent);
     }
 
+    function updateProgressUI(percent) {
+        const progressPercent = percent * 100;
+        if (progressCurrent) progressCurrent.style.width = progressPercent + '%';
+        if (progressThumb) progressThumb.style.left = progressPercent + '%';
+        if (timeDisplay) {
+            const currentTime = percent * video.duration;
+            timeDisplay.textContent = fmtTime(currentTime) + ' / ' + fmtTime(video.duration);
+        }
+    }
+
+    function handleDrag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        seekToPosition(e);
+        
+        // Update thumbnail during drag
+        if (video.duration && isFinite(video.duration)) {
+            const rect = progressTrack.getBoundingClientRect();
+            const percent = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+            const time = percent * video.duration;
+            
+            if (playerWrapper) {
+                const wrapperRect = playerWrapper.getBoundingClientRect();
+                const relativeX = e.clientX - wrapperRect.left;
+                showThumbnailAtTime(time, relativeX);
+            }
+        }
+    }
+
+    function handleTouchDrag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        seekToPosition(e.touches[0]);
+        
+        // Update thumbnail during touch drag
+        if (video.duration && isFinite(video.duration)) {
+            const rect = progressTrack.getBoundingClientRect();
+            const percent = Math.max(0, Math.min((e.touches[0].clientX - rect.left) / rect.width, 1));
+            const time = percent * video.duration;
+            
+            if (playerWrapper) {
+                const wrapperRect = playerWrapper.getBoundingClientRect();
+                const relativeX = e.touches[0].clientX - wrapperRect.left;
+                showThumbnailAtTime(time, relativeX);
+            }
+        }
+    }
+
+    function stopDrag() {
+        isDragging = false;
+        hideThumbnail();
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', stopDrag);
+    }
+
+    function stopTouchDrag() {
+        isDragging = false;
+        hideThumbnail();
+        document.removeEventListener('touchmove', handleTouchDrag);
+        document.removeEventListener('touchend', stopTouchDrag);
+    }
+
+    // Hover thumbnail preview (separate from drag)
+    progressTrack.addEventListener('mousemove', (e) => {
+        if (isDragging) return; // Don't interfere with dragging
+        
+        if (!video.duration || !isFinite(video.duration)) return;
+        
+        const rect = progressTrack.getBoundingClientRect();
+        const percent = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+        const time = percent * video.duration;
+        
+        // Show thumbnail preview
+        if (playerWrapper) {
+            const wrapperRect = playerWrapper.getBoundingClientRect();
+            const relativeX = e.clientX - wrapperRect.left;
+            showThumbnailAtTime(time, relativeX);
+        }
+        
+        if (hoverTimeout) clearTimeout(hoverTimeout);
+    });
+
+    progressTrack.addEventListener('mouseleave', () => {
+        if (isDragging) return; // Don't hide thumbnail while dragging
+        hideThumbnail();
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+    });
+
+    // Click to seek (for non-drag clicks)
+    progressTrack.addEventListener('click', (e) => {
+        if (!video.duration || !isFinite(video.duration)) return;
+        if (isDragging) return; // Already handled by drag
+        
+        e.stopPropagation();
+        
+        const rect = progressTrack.getBoundingClientRect();
+        const percent = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
+        const seekTime = percent * video.duration;
+        
+        video.currentTime = seekTime;
+        updateProgressUI(percent);
+        
+        // Auto-play if paused
+        
+        // if (video.paused) {
+        //     video.play().catch(() => {});
+        // }
+    });
     // --- Volume controls ---
     if (volumeSlider) {
         volumeSlider.addEventListener('input', () => {
@@ -633,7 +949,6 @@
     const dislikeBtn = document.getElementById('dislikeBtn');
     const likeCountSpan = document.getElementById('likeCount');
     const showDescBtn = document.getElementById('showDescBtn');
-    const descPreview = document.getElementById('descPreview');
     const sortBtn = document.getElementById('sortBtn');
     const sortDropdown = document.getElementById('sortDropdown');
     const sortLabel = document.getElementById('sortLabel');
@@ -875,7 +1190,7 @@
                 <div class="comment-author">${author}${verifiedBadge} <span class="comment-time">${time}</span></div>
                 <p>${formattedText}</p>
                 <div class="comment-actions-row">
-                    <button class="comment-action-btn like-comment-btn">👍 <span>0</span></button>
+                    <button class="comment-action-btn like-comment-btn">👍<span>0</span></button>
                     <button class="comment-action-btn">👎</button>
                     <button class="comment-action-btn reply-toggle-btn">Reply</button>
                 </div>
