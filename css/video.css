@@ -215,7 +215,6 @@ ul, ol { list-style: none; }
 
 /* Progress */
 .progress-container { position: relative; margin-bottom: 8px; }
-.progress-hover-time { position: absolute; top: -24px; background: rgba(0,0,0,0.8); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; display: none; pointer-events: none; transform: translateX(-50%); }
 .progress-track { width: 100%; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer; position: relative; }
 .progress-track:hover { height: 7px; }
 .progress-loaded { height: 100%; background: rgba(255,255,255,0.4); border-radius: 3px; position: absolute; width: 0%; }

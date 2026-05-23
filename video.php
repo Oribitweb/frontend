@@ -48,7 +48,6 @@ $videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                 <!-- Custom Controls -->
                 <div class="custom-controls" id="customControls">
                     <div class="progress-container" id="progressContainer">
-                        <div class="progress-hover-time" id="progressHoverTime">0:00</div>
                         <div class="progress-track" id="progressTrack">
                             <div class="progress-loaded" id="progressLoaded"></div>
                             <div class="progress-current" id="progressCurrent"></div>
