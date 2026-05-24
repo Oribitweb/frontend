@@ -204,11 +204,60 @@ ul, ol { list-style: none; }
 .main-video { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; border-radius: 12px; }
 .video-title-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 20px; background: linear-gradient(rgba(0,0,0,0.6), transparent); color: #fff; font-weight: 600; font-size: 1.1rem; opacity: 0; transition: opacity 0.3s; }
 .player-wrapper:hover .video-title-overlay { opacity: 1; }
-.custom-controls { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 12px 16px 10px; opacity: 0; transition: opacity 0.3s; }
-.player-wrapper:hover .custom-controls, .player-wrapper:fullscreen .custom-controls, .player-wrapper.paused .custom-controls { opacity: 1; }
+
+/* ===== UPDATED: Custom Controls with Auto-hide Behavior ===== */
+.custom-controls { 
+    position: absolute; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    background: linear-gradient(transparent, rgba(0,0,0,0.85)); 
+    padding: 12px 16px 10px; 
+    opacity: 1; 
+    transition: opacity 0.4s ease; 
+    pointer-events: all;
+    z-index: 10;
+}
+
+/* Auto-hide class for controls */
+.controls-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+/* ===== NEW: Shadow Overlays for Visual Separation ===== */
+.shadow-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 5;
+    transition: opacity 0.4s ease;
+}
+
+.shadow-overlay-top {
+    top: 0;
+    height: 120px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 40%, transparent 100%);
+}
+
+.shadow-overlay-bottom {
+    bottom: 0;
+    height: 200px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+}
+
+.shadow-overlay-hidden {
+    opacity: 0;
+}
 
 /* Progress */
-.progress-container { position: relative; margin-bottom: 8px; }
+.progress-container { 
+    position: relative; 
+    margin-bottom: 8px; 
+    transition: opacity 0.4s ease;
+}
 .progress-track { width: 100%; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer; position: relative; }
 .progress-track:hover { height: 7px; }
 .progress-loaded { height: 100%; background: rgba(255,255,255,0.4); border-radius: 3px; position: absolute; width: 0%; }
@@ -560,13 +609,6 @@ ul, ol { list-style: none; }
 }
 .player-wrapper:fullscreen .ambient-canvas-container {
     display: none;
-}
-.custom-controls {
-    transition: opacity 0.3s ease;
-}
-.controls-hidden {
-    opacity: 0;
-    pointer-events: none;
 }
 
 /* Hero Play Button */
