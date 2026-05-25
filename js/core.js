@@ -85,28 +85,107 @@ if (overlay) {
     overlay.addEventListener('click', closeAllPopups);
 }
 
-// ===== Auth Functions =====
-async function authorizedFetch(url, options = {}) {
-    try {
-        const res = await fetch(url, { ...options, credentials: 'include' });
-        if (res.status === 401) {
-            await refreshToken();
-            const retryRes = await fetch(url, { ...options, credentials: 'include' });
-            if (!retryRes.ok) throw new Error('Unauthorized after refresh');
-            return retryRes;
+// =============================================
+//  AUTH & TOKEN REFRESH – GLOBAL FETCH OVERRIDE
+// =============================================
+
+// Preserve the original fetch so we can call it directly for token refresh
+const originalFetch = window.fetch;
+
+// Refresh state (centralised queue)
+let isRefreshing = false;
+let refreshPromise = null;
+let failedQueue = [];   // holds pending requests that hit 401
+
+function processQueue(error, token) {
+    failedQueue.forEach(({ resolve, reject, url, options }) => {
+        if (error) {
+            reject(error);                     // refresh failed → reject all
+        } else {
+            // Retry with a marker so the interceptor knows it's a retry
+            const retryOptions = { ...options, __retry: true };
+            originalFetch(url, retryOptions)   // use original fetch to keep it simple
+                .then(resolve, reject);
         }
-        return res;
-    } catch (err) { throw err; }
+    });
+    failedQueue = [];
 }
 
-window.authorizedFetch = authorizedFetch;
-
+/**
+ * Perform a token refresh. Only one refresh call can be in progress at a time.
+ * Returns a promise that resolves when the refresh completes (or rejects on failure).
+ */
 async function refreshToken() {
-    const res = await fetch(`${API_BASE}/refresh`, { method: 'POST', credentials: 'include' });
-    if (!res.ok) throw new Error('Refresh failed');
-    return await res.json();
+    if (isRefreshing) return refreshPromise;
+
+    isRefreshing = true;
+    refreshPromise = originalFetch(`${API_BASE}/refresh`, {
+        method: 'POST',
+        credentials: 'include'
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Refresh failed');
+        return res.json();   // cookie is set by backend, we only need success signal
+    })
+    .then(data => {
+        processQueue(null, data.access_token);
+        return data;
+    })
+    .catch(err => {
+        processQueue(err, null);
+        // Optionally force logout here
+        throw err;
+    })
+    .finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+    });
+
+    return refreshPromise;
 }
 
+/**
+ * Override global fetch to intercept 401 responses.
+ * Any request that gets a 401 (except the /refresh endpoint itself, and retries)
+ * is automatically queued and retried after a successful token refresh.
+ */
+window.fetch = async function(url, options = {}) {
+    // Bypass interceptor for /refresh calls (they use originalFetch anyway)
+    if (url === `${API_BASE}/refresh` || options.__bypassInterceptor) {
+        return originalFetch(url, options);
+    }
+
+    // Normal request – send with credentials
+    const fetchOptions = { ...options, credentials: 'include' };
+    const res = await originalFetch(url, fetchOptions);
+
+    // If not 401, or if it's already a retry (to avoid infinite loops), return response
+    if (res.status !== 401 || options.__retry) {
+        return res;
+    }
+
+    // --- 401 detected, need to refresh ---
+    // Start the refresh (no-op if already in progress)
+    const refreshTask = refreshToken();
+
+    // Queue this request to be retried after the refresh completes
+    return new Promise((resolve, reject) => {
+        failedQueue.push({
+            resolve,
+            reject,
+            url,
+            options: fetchOptions   // original options with credentials
+        });
+    });
+};
+
+// (End of global fetch override)
+
+// =============================================
+//  END OF AUTH UPDATE
+// =============================================
+
+// ===== Login / Register / Logout (unchanged) =====
 async function loginUser(credentials) {
     const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
@@ -138,18 +217,18 @@ async function registerUser(userData) {
 async function logoutUser() {
     await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
     currentUser = null;
-    window.currentUser = null;   // مهم: پاک‌سازی window.currentUser
+    window.currentUser = null;
     if (window.updateUserDropdown) window.updateUserDropdown();
     showToast('Logged out successfully');
 }
 
 async function fetchCurrentUser() {
     try {
-        const res = await authorizedFetch(`${API_BASE}/users/me`);
+        const res = await fetch(`${API_BASE}/users/me`);
         if (res.ok) {
             const user = await res.json();
             currentUser = user;
-            window.currentUser = user;   // ✅ حالا window هم به‌روز می‌شه
+            window.currentUser = user;
         } else {
             currentUser = null;
             window.currentUser = null;
@@ -210,7 +289,7 @@ window.setTheme = setTheme;
 window.openPopup = openPopup;
 window.closeAllPopups = closeAllPopups;
 window.openPopupById = openPopupById;
-window.currentUser = currentUser;        // فقط مقدار اولیه رو می‌ذاریم
+window.currentUser = currentUser;
 window.fetchCurrentUser = fetchCurrentUser;
 window.logoutUser = logoutUser;
 window.loginUser = loginUser;
@@ -218,7 +297,7 @@ window.registerUser = registerUser;
 
 // ===== Init on DOM ready =====
 document.addEventListener('DOMContentLoaded', () => {
-    fetchCurrentUser();        // کاربر فعلی رو می‌گیره و هم currentUser و هم window.currentUser رو آپدیت می‌کنه
+    fetchCurrentUser();
     initSidebar();
     initCreateDropdown();
     initShowMoreChannels();
