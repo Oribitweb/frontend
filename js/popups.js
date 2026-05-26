@@ -44,7 +44,7 @@
         }
         
         try {
-            const response = await window.authorizedFetch(`${API_BASE}/videos/ws-token`);
+            const response = await window.fetch(`${API_BASE}/videos/ws-token`);
             
             if (!response.ok) {
                 console.error('Failed to fetch WebSocket token:', response.status);
@@ -508,7 +508,7 @@
 
             try {
                 const filenameEncoded = encodeURIComponent(videoFile.name);
-                const presignedResponse = await window.authorizedFetch(
+                const presignedResponse = await window.fetch(
                     `${API_BASE}/videos/upload-url?filename=${filenameEncoded}`
                 );
 
@@ -550,9 +550,7 @@
                 let thumbnail_key = null;
                 if (thumbnailFile) {
                     if (uploadStatus) uploadStatus.textContent = 'Uploading thumbnail...';
-                    const thumbResp = await window.authorizedFetch(
-                        `${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`
-                    );
+                    const thumbResp = await fetch(`${API_BASE}/videos/thumbnail-upload-url?filename=${encodeURIComponent(thumbnailFile.name)}&content_type=${encodeURIComponent(thumbnailFile.type || 'image/jpeg')}`);
                     if (thumbResp.ok) {
                         const thumbData = await thumbResp.json();
                         await uploadFileWithProgress(thumbData.upload_url, thumbnailFile);
@@ -582,14 +580,11 @@
                     thumbnail_key
                 };
 
-                const completeResponse = await window.authorizedFetch(
-                    `${API_BASE}/videos/complete`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(completePayload)
-                    }
-                );
+                const completeResponse = await fetch(`${API_BASE}/videos/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(completePayload)
+                });
 
                 if (!completeResponse.ok) {
                     let errData;
@@ -618,7 +613,7 @@
                         console.log('Video ready:', videoId);
                         
                         try {
-                            const signedUrlResponse = await window.authorizedFetch(
+                            const signedUrlResponse = await fetch(
                                 `${API_BASE}/videos/${videoId}/signed-url`
                             );
                             if (signedUrlResponse.ok) {
