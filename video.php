@@ -174,16 +174,16 @@ $videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             </div>
             <button class="show-more-btn" id="showDescBtn">Show more</button>
         </div>
-
         <!-- Comments Section -->
         <div class="comments-section">
             <div class="comments-header">
-                <h2>Comments <span class="comment-count">245</span></h2>
+                <h2>Comments <span class="comment-count">0</span></h2>
+                <!-- In video.php, update the sort dropdown section -->
                 <div class="sort-container">
-                    <button class="sort-btn" id="sortBtn">Sort by: <span id="sortLabel">Top comments</span></button>
+                    <button class="sort-btn" id="sortBtn">Sort by: <span id="sortLabel">Newest first</span></button>
                     <div class="sort-dropdown" id="sortDropdown">
-                        <button data-sort="top">Top comments</button>
                         <button data-sort="newest">Newest first</button>
+                        <button data-sort="popular">Most popular</button>
                     </div>
                 </div>
             </div>
@@ -202,27 +202,10 @@ $videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
                 <div class="emoji-menu" id="emojiMenu"></div>
             </div>
             <div class="comment-list" id="commentList">
-                <div class="comment" data-comment-id="1">
-                    <div class="comment-avatar">A</div>
-                    <div class="comment-body">
-                        <div class="comment-author">User One <span class="comment-time">1 day ago</span></div>
-                        <p>Great video! Keep it up.</p>
-                        <div class="comment-actions-row">
-                            <button class="comment-action-btn like-comment-btn">👍 <span>12</span></button>
-                            <button class="comment-action-btn">👎</button>
-                            <button class="comment-action-btn reply-toggle-btn">Reply</button>
-                        </div>
-                        <div class="reply-form" style="display:none;">
-                            <input type="text" class="reply-input" placeholder="Write a reply..." maxlength="400">
-                            <button class="reply-send-btn">Reply</button>
-                        </div>
-                        <div class="reply-list"></div>
-                    </div>
-                </div>
+                <!-- Comments will be loaded dynamically from API -->
             </div>
         </div>
     </div>
-
     <!-- Watch Secondary (ad, related videos) -->
     <div class="watch-secondary">
         <div class="ad-banner-container" id="adBannerContainer">

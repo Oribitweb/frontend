@@ -50,9 +50,9 @@
     function renderVideosSorted(sortType = 'latest') {
         let sorted = [...videos];
         if (sortType === 'popular') sorted.sort((a, b) => parseViews(b.views) - parseViews(a.views));
-        else if (sortType === 'oldest') sorted.reverse();
         videoGrid.innerHTML = sorted.map(renderVideoCard).join('');
     }
+
     
     function renderAll() {
         const popularSorted = [...videos].sort((a, b) => parseViews(b.views) - parseViews(a.views));

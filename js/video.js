@@ -1032,8 +1032,6 @@
 
     // ================================================================
     // 2. Original Page Features (like, subscribe, comments, share, etc.)
-    //    All variables from original video.js that are not player‑related
-    //    are kept below, without duplicating player controls.
     // ================================================================
 
     // Grab additional DOM elements used by the page features
@@ -1213,18 +1211,6 @@
     }
     if (descPreview) highlightHashtags(descPreview);
 
-    // ===== Sort =====
-    if (sortBtn && sortDropdown) {
-        sortBtn.addEventListener('click', () => sortDropdown.classList.toggle('active'));
-        sortDropdown.querySelectorAll('button').forEach(b => {
-            b.addEventListener('click', () => {
-                sortLabel.textContent = b.dataset.sort === 'top' ? 'Top comments' : 'Newest first';
-                sortDropdown.classList.remove('active');
-            });
-        });
-        document.addEventListener('click', (e) => { if (!sortDropdown.contains(e.target) && e.target !== sortBtn) sortDropdown.classList.remove('active'); });
-    }
-
     // ===== Emoji Replacement =====
     function replaceEmojis(text) {
         return text.replace(/:([a-zA-Z]+):/g, (match, name) => {
@@ -1233,15 +1219,6 @@
                 return `<img src="assets/emoji/${filename}" alt="${name}" class="emoji-inline">`;
             }
             return match;
-        });
-    }
-
-    // ===== Comment Character Counter =====
-    if (commentInput && charCounter) {
-        commentInput.addEventListener('input', () => {
-            const len = commentInput.value.length;
-            charCounter.textContent = `${len} / 400`;
-            charCounter.style.color = len >= 400 ? '#ff4444' : 'var(--text-secondary)';
         });
     }
 
@@ -1271,40 +1248,411 @@
         if (emojiMenu && !emojiMenu.contains(e.target) && e.target !== emojiBtn) emojiMenu.classList.remove('active');
     });
 
-    // ===== Send Comment with verification badge =====
-    function addComment(author, time, text, verified = false) {
+    // ================================================================
+    // 3. COMMENTS SECTION - API INTEGRATION
+    // ================================================================
+
+    // Comments state
+    let currentCommentPage = 1;
+    let totalComments = 0;
+    const COMMENTS_PER_PAGE = 20;
+    let currentSort = 'newest';
+    let commentsLoaded = false;
+
+    // Fetch comments from API
+    async function fetchComments(page = 1, sort = 'newest') {
+        try {
+            const url = `${API_BASE}/comments/video/${VIDEO_ID}?page=${page}&per_page=${COMMENTS_PER_PAGE}&sort_by=${sort}`;
+            console.log('Fetching comments from:', url);
+            
+            const res = await fetch(url, {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            if (!res.ok) {
+                if (res.status === 401) {
+                    // User not authenticated, fetch without credentials
+                    const publicRes = await fetch(url, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (!publicRes.ok) throw new Error(`HTTP ${publicRes.status}`);
+                    return await publicRes.json();
+                }
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            
+            const data = await res.json();
+            return data;
+        } catch (err) {
+            console.error('Failed to fetch comments:', err);
+            window.showToast('Error loading comments');
+            return null;
+        }
+    }
+
+    // Fetch replies for a specific comment
+    async function fetchReplies(commentId, page = 1) {
+        try {
+            const url = `${API_BASE}/comments/${commentId}/replies?page=${page}&per_page=10`;
+            
+            const res = await fetch(url, {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            if (!res.ok) {
+                const publicRes = await fetch(url, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!publicRes.ok) throw new Error(`HTTP ${publicRes.status}`);
+                return await publicRes.json();
+            }
+            
+            return await res.json();
+        } catch (err) {
+            console.error('Failed to fetch replies:', err);
+            return null;
+        }
+    }
+
+    // Create a new comment via API
+    async function createCommentAPI(body, parentId = null) {
+        try {
+            const url = `${API_BASE}/comments/`;
+            const commentData = {
+                body: body,
+                video_id: VIDEO_ID,
+                parent_id: parentId
+            };
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(commentData)
+            });
+            
+            if (!res.ok) {
+                if (res.status === 401) {
+                    window.showToast('Please login to comment');
+                    return null;
+                }
+                const errorData = await res.json();
+                throw new Error(errorData.detail || `HTTP ${res.status}`);
+            }
+            
+            const data = await res.json();
+            return data;
+        } catch (err) {
+            console.error('Failed to create comment:', err);
+            window.showToast(`Error: ${err.message}`);
+            return null;
+        }
+    }
+
+    // Delete a comment via API
+    async function deleteCommentAPI(commentId) {
+        try {
+            const url = `${API_BASE}/comments/${commentId}`;
+            
+            const res = await fetch(url, {
+                method: 'DELETE',
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            
+            if (!res.ok) {
+                if (res.status === 401) {
+                    window.showToast('Please login to delete comments');
+                    return false;
+                }
+                throw new Error(`HTTP ${res.status}`);
+            }
+            
+            return true;
+        } catch (err) {
+            console.error('Failed to delete comment:', err);
+            window.showToast(`Error: ${err.message}`);
+            return false;
+        }
+    }
+
+    // Render a single comment
+    function renderComment(comment, isReply = false) {
+        const username = comment.username || 'User';
+        const verifiedBadge = comment.is_approved ? 
+            `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
+        
+        const formattedText = replaceEmojis(comment.body);
+        const timeText = timeAgo(comment.created_at);
+        const isEdited = comment.is_edited ? ' (edited)' : '';
+        const isPinned = comment.is_pinned ? '📌 ' : '';
+        
         const div = document.createElement('div');
-        div.className = 'comment';
-        div.setAttribute('data-comment-id', Date.now());
-        const formattedText = replaceEmojis(text);
-        const verifiedBadge = verified ? `<span class="verified-badge"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>` : '';
+        div.className = `comment ${isReply ? 'reply-comment' : ''}`;
+        div.setAttribute('data-comment-id', comment.id);
+        div.style.marginLeft = isReply ? '20px' : '0';
+        
         div.innerHTML = `
-            <div class="comment-avatar">${author[0]}</div>
+            <div class="comment-avatar">${username[0].toUpperCase()}</div>
             <div class="comment-body">
-                <div class="comment-author">${author}${verifiedBadge} <span class="comment-time">${time}</span></div>
+                <div class="comment-author">
+                    ${isPinned}${username}${verifiedBadge} 
+                    <span class="comment-time">${timeText}${isEdited}</span>
+                </div>
                 <p>${formattedText}</p>
                 <div class="comment-actions-row">
-                    <button class="comment-action-btn like-comment-btn">👍<span>0</span></button>
-                    <button class="comment-action-btn">👎</button>
-                    <button class="comment-action-btn reply-toggle-btn">Reply</button>
+                    <button class="comment-action-btn like-comment-btn">
+                        👍 <span>0</span>
+                    </button>
+                    <button class="comment-action-btn dislike-comment-btn">
+                        👎 <span>0</span>
+                    </button>
+                    ${!isReply ? `
+                    <button class="comment-action-btn reply-toggle-btn" data-comment-id="${comment.id}">
+                        Reply ${comment.reply_count > 0 ? `(${comment.reply_count})` : ''}
+                    </button>
+                    ` : ''}
+                    <button class="comment-action-btn delete-comment-btn" data-comment-id="${comment.id}" style="display:none;">
+                        Delete
+                    </button>
                 </div>
                 <div class="reply-form" style="display:none;">
                     <input type="text" class="reply-input" placeholder="Write a reply..." maxlength="400">
-                    <button class="reply-send-btn">Reply</button>
+                    <button class="reply-send-btn" data-parent-id="${comment.id}">Reply</button>
                 </div>
-                <div class="reply-list"></div>
+                <div class="reply-list" data-parent-id="${comment.id}"></div>
             </div>
         `;
-        commentList.prepend(div);
-        attachCommentListeners(div);
+        
+        return div;
     }
 
+    // Render all comments
+    function renderComments(comments) {
+        if (!commentList) return;
+        
+        // Clear existing comments
+        commentList.innerHTML = '';
+        
+        if (!comments || comments.length === 0) {
+            commentList.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <p>No comments yet. Be the first to comment!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Render each comment
+        comments.forEach(comment => {
+            const commentEl = renderComment(comment);
+            commentList.appendChild(commentEl);
+            attachCommentListeners(commentEl);
+            
+            // Load replies for comments with reply_count > 0
+            if (comment.reply_count > 0) {
+                const replyList = commentEl.querySelector('.reply-list');
+                if (replyList) {
+                    const showRepliesBtn = document.createElement('button');
+                    showRepliesBtn.className = 'show-replies-btn';
+                    showRepliesBtn.textContent = `Show ${comment.reply_count} replies`;
+                    showRepliesBtn.style.cssText = `
+                        color: var(--accent);
+                        font-size: 0.85rem;
+                        margin: 8px 0;
+                        cursor: pointer;
+                        background: none;
+                        border: none;
+                        font-weight: 600;
+                    `;
+                    showRepliesBtn.addEventListener('click', async () => {
+                        showRepliesBtn.textContent = 'Loading...';
+                        const repliesData = await fetchReplies(comment.id);
+                        if (repliesData && repliesData.comments) {
+                            replyList.innerHTML = '';
+                            repliesData.comments.forEach(reply => {
+                                const replyEl = renderComment(reply, true);
+                                replyList.appendChild(replyEl);
+                                attachCommentListeners(replyEl);
+                            });
+                            showRepliesBtn.remove();
+                        } else {
+                            showRepliesBtn.textContent = 'Error loading replies';
+                        }
+                    });
+                    replyList.appendChild(showRepliesBtn);
+                }
+            }
+        });
+        
+        // Update comment count
+        updateCommentCount();
+        
+        // Add load more button if needed
+        if (totalComments > currentCommentPage * COMMENTS_PER_PAGE) {
+            addLoadMoreButton();
+        }
+    }
+
+    // Update comment count display
+    function updateCommentCount() {
+        const commentCountSpan = document.querySelector('.comment-count');
+        if (commentCountSpan) {
+            commentCountSpan.textContent = totalComments;
+        }
+    }
+
+    // Add load more button
+    function addLoadMoreButton() {
+        const existingBtn = commentList.querySelector('.load-more-btn');
+        if (existingBtn) existingBtn.remove();
+        
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.className = 'load-more-btn';
+        loadMoreBtn.textContent = 'Load more comments';
+        loadMoreBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--accent);
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: background 0.2s;
+        `;
+        loadMoreBtn.addEventListener('mouseenter', () => {
+            loadMoreBtn.style.background = 'var(--hover-bg)';
+        });
+        loadMoreBtn.addEventListener('mouseleave', () => {
+            loadMoreBtn.style.background = 'var(--card-bg)';
+        });
+        loadMoreBtn.addEventListener('click', loadMoreComments);
+        commentList.appendChild(loadMoreBtn);
+    }
+
+    // Load more comments
+    async function loadMoreComments() {
+        currentCommentPage++;
+        const data = await fetchComments(currentCommentPage, currentSort);
+        if (data && data.comments) {
+            // Remove load more button
+            const loadMoreBtn = commentList.querySelector('.load-more-btn');
+            if (loadMoreBtn) loadMoreBtn.remove();
+            
+            // Append new comments
+            data.comments.forEach(comment => {
+                const commentEl = renderComment(comment);
+                commentList.appendChild(commentEl);
+                attachCommentListeners(commentEl);
+            });
+            
+            // Add load more button again if needed
+            if (totalComments > currentCommentPage * COMMENTS_PER_PAGE) {
+                addLoadMoreButton();
+            }
+        }
+    }
+
+    // Send a new comment
+    async function sendCommentToAPI() {
+        const text = commentInput.value.trim();
+        if (!text) return;
+        
+        if (text.length > 400) {
+            window.showToast('Comment too long (max 400 characters)');
+            return;
+        }
+        
+        // Disable send button while processing
+        if (sendCommentBtn) sendCommentBtn.disabled = true;
+        
+        const newComment = await createCommentAPI(text);
+        
+        if (newComment) {
+            // Clear input
+            commentInput.value = '';
+            commentInput.dispatchEvent(new Event('input'));
+            
+            // Refresh comments to show the new one
+            await refreshComments();
+            window.showToast('Comment posted!');
+        }
+        
+        // Re-enable send button
+        if (sendCommentBtn) sendCommentBtn.disabled = false;
+    }
+
+    // Send a reply
+    async function sendReply(parentId, replyInput) {
+        const text = replyInput.value.trim();
+        if (!text) return;
+        
+        const newReply = await createCommentAPI(text, parentId);
+        
+        if (newReply) {
+            replyInput.value = '';
+            // Refresh the replies for this comment
+            const commentEl = document.querySelector(`[data-comment-id="${parentId}"]`);
+            if (commentEl) {
+                const replyList = commentEl.querySelector('.reply-list');
+                const replyForm = commentEl.querySelector('.reply-form');
+                
+                if (replyList && replyForm) {
+                    // Fetch updated replies
+                    const repliesData = await fetchReplies(parentId);
+                    if (repliesData && repliesData.comments) {
+                        replyList.innerHTML = '';
+                        repliesData.comments.forEach(reply => {
+                            const replyEl = renderComment(reply, true);
+                            replyList.appendChild(replyEl);
+                            attachCommentListeners(replyEl);
+                        });
+                    }
+                    replyForm.style.display = 'none';
+                }
+            }
+            window.showToast('Reply posted!');
+        }
+    }
+
+    // Refresh all comments
+    async function refreshComments() {
+        const data = await fetchComments(1, currentSort);
+        if (data) {
+            totalComments = data.total || 0;
+            currentCommentPage = 1;
+            renderComments(data.comments);
+        }
+    }
+
+    // Load initial comments
+    async function loadComments() {
+        if (commentsLoaded) return;
+        
+        const data = await fetchComments(1, currentSort);
+        if (data) {
+            totalComments = data.total || 0;
+            renderComments(data.comments);
+            commentsLoaded = true;
+        }
+    }
+
+    // Attach comment event listeners
     function attachCommentListeners(commentEl) {
         const toggleBtn = commentEl.querySelector('.reply-toggle-btn');
         const replyForm = commentEl.querySelector('.reply-form');
         const replyInput = commentEl.querySelector('.reply-input');
         const replySendBtn = commentEl.querySelector('.reply-send-btn');
-        const replyList = commentEl.querySelector('.reply-list');
+        const deleteBtn = commentEl.querySelector('.delete-comment-btn');
+        const likeBtn = commentEl.querySelector('.like-comment-btn');
+        const dislikeBtn = commentEl.querySelector('.dislike-comment-btn');
 
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
@@ -1312,46 +1660,83 @@
             });
         }
 
-        const sendReply = () => {
-            const replyText = replyInput.value.trim();
-            if (replyText) {
-                const replyDiv = document.createElement('div');
-                replyDiv.className = 'comment';
-                replyDiv.style.marginLeft = '20px';
-                replyDiv.innerHTML = `
-                    <div class="comment-avatar">U</div>
-                    <div class="comment-body">
-                        <div class="comment-author">You <span class="comment-time">Just now</span></div>
-                        <p>${replaceEmojis(replyText)}</p>
-                    </div>
-                `;
-                replyList.appendChild(replyDiv);
-                replyInput.value = '';
-                replyForm.style.display = 'none';
-            }
-        };
-
-        if (replySendBtn) replySendBtn.addEventListener('click', sendReply);
-        if (replyInput) replyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendReply(); });
-    }
-
-    function sendComment() {
-        const text = commentInput.value.trim();
-        if (!text) return;
-        if (text.length > 400) {
-            window.showToast('Comment too long (max 400 characters)');
-            return;
+        if (replySendBtn) {
+            replySendBtn.addEventListener('click', () => {
+                const parentId = replySendBtn.getAttribute('data-parent-id');
+                sendReply(parentId, replyInput);
+            });
         }
-        addComment('You', 'Just now', text, true);
-        commentInput.value = '';
-        commentInput.dispatchEvent(new Event('input'));
+
+        if (replyInput) {
+            replyInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const parentId = replySendBtn.getAttribute('data-parent-id');
+                    sendReply(parentId, replyInput);
+                }
+            });
+        }
+        
+        if (deleteBtn) {
+            const commentId = deleteBtn.getAttribute('data-comment-id');
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete this comment?')) {
+                    const success = await deleteCommentAPI(commentId);
+                    if (success) {
+                        commentEl.remove();
+                        totalComments--;
+                        updateCommentCount();
+                        window.showToast('Comment deleted');
+                    }
+                }
+            });
+        }
     }
 
-    if (sendCommentBtn) sendCommentBtn.addEventListener('click', sendComment);
-    if (commentInput) commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); } });
+    // ===== Sort =====
+    if (sortBtn && sortDropdown) {
+        sortBtn.addEventListener('click', () => sortDropdown.classList.toggle('active'));
+        sortDropdown.querySelectorAll('button').forEach(b => {
+            b.addEventListener('click', async () => {
+                // Map frontend sort values to backend literals: 'newest' | 'popular'
+                currentSort = b.dataset.sort; // 'newest' or 'popular' — passed straight through
+                sortLabel.textContent = currentSort === 'popular' ? 'Top comments' : 'Newest first';
+                sortDropdown.classList.remove('active');
+                
+                // Refresh comments with new sort
+                commentsLoaded = false;
+                currentCommentPage = 1;
+                await loadComments();
+            });
+        });
+        
+        document.addEventListener('click', (e) => { 
+            if (!sortDropdown.contains(e.target) && e.target !== sortBtn) {
+                sortDropdown.classList.remove('active'); 
+            }
+        });
+    }
 
-    // Attach listeners to existing static comments (if any)
-    document.querySelectorAll('.comment').forEach(c => attachCommentListeners(c));
+    // ===== Comment Character Counter =====
+    if (commentInput && charCounter) {
+        commentInput.addEventListener('input', () => {
+            const len = commentInput.value.length;
+            charCounter.textContent = `${len} / 400`;
+            charCounter.style.color = len >= 400 ? '#ff4444' : 'var(--text-secondary)';
+        });
+    }
+
+    // ===== Send Comment =====
+    if (sendCommentBtn) {
+        sendCommentBtn.addEventListener('click', sendCommentToAPI);
+    }
+    if (commentInput) {
+        commentInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                sendCommentToAPI(); 
+            } 
+        });
+    }
 
     // ===== Related Videos =====
     if (relatedList) {
@@ -1372,5 +1757,8 @@
             </div>
         `).join('');
     }
+
+    // Load comments when the page loads
+    loadComments();
 
 })();
