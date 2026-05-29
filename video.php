@@ -5,12 +5,12 @@ $activePage = '';
 include 'includes/header.php';
 include 'includes/sidebar.php';
 
-$videoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-// Video ID is passed to JS – if missing, the player will show an error gracefully.
+// Accept the video ID as-is (string) — do NOT cast to int
+$videoId = isset($_GET['id']) ? $_GET['id'] : '';
 ?>
 
 <script>
-    window.VIDEO_ID = <?php echo $videoId; ?>;
+    window.VIDEO_ID = "<?= htmlspecialchars($videoId, ENT_QUOTES, 'UTF-8') ?>";
     window.API_BASE_URL = 'http://localhost:8000';
     window.WS_BASE_URL = 'ws://localhost:8000';
 </script>

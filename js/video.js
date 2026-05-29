@@ -14,7 +14,7 @@
     const API_BASE = window.API_BASE_URL || 'http://localhost:8000';
     const WS_BASE = window.WS_BASE_URL || 'ws://localhost:8000';
     const video = document.getElementById('mainVideo');
-    const VIDEO_ID = window.VIDEO_ID;
+    const VIDEO_ID = String(window.VIDEO_ID || '').trim();
 
     // --- DOM references (player specific) ---
     const heroPlayBtn = document.getElementById('heroPlayBtn');
@@ -1322,7 +1322,7 @@
             const url = `${API_BASE}/comments/`;
             const commentData = {
                 body: body,
-                video_id: VIDEO_ID,
+                public_id: VIDEO_ID,
                 parent_id: parentId
             };
             
