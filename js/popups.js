@@ -73,7 +73,7 @@
             <div class="video-ready-notification-content">
                 <span>✅ ${message}</span>
                 <div class="notification-actions">
-                    <a href="/watch/${videoId}" class="btn btn-primary btn-sm">Watch Now</a>
+                    <a href="/video.php/${videoId}" class="btn btn-primary btn-sm">Watch Now</a>
                     <button class="btn-close-notification" aria-label="Close">✕</button>
                 </div>
             </div>
@@ -608,7 +608,7 @@
                 
                 // Connect to WebSocket for real-time updates
                 connectToVideoStatus(
-                    completeData.video_id,
+                    completeData.public_id,
                     async (videoId) => {
                         console.log('Video ready:', videoId);
                         
@@ -631,7 +631,7 @@
                             statusElement.innerHTML = `
                                 <div class="processing-complete">
                                     <span>✅ Video ready!</span>
-                                    <button onclick="window.location.href='/watch/${videoId}'" class="btn btn-primary btn-sm">
+                                    <button onclick="window.location.href='/video.php/${videoId}'" class="btn btn-primary btn-sm">
                                         Watch Now
                                     </button>
                                 </div>
