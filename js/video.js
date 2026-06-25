@@ -59,6 +59,7 @@
     let spriteTiles = [];
     let spriteSheetImage = null;
     let thumbnailPreview = null;
+    let initialUserReaction = null;
 
     // --- Hero state management ---
     function setHeroState(state) {
@@ -215,8 +216,39 @@
         if (metadata.title) {
             document.title = `${metadata.title} - ORBIT`;
         }
+
+        let initialLikeCount = metadata.like_count ?? 0;
+        if (initialLikeCount === 0 && metadata.current_user_reaction === 'like') {
+            initialLikeCount = 1;
+        }
+        renderLikeCount(initialLikeCount);
+
+        if (metadata.current_user_reaction) {
+            initialUserReaction = metadata.current_user_reaction;
+            applyInitialReactionState();
+        }
         
         console.log('Video metadata loaded:', metadata);
+    }
+
+    function renderLikeCount(count) {
+        if (!likeCountSpan) return;
+        const normalizedCount = Number(count) || 0;
+        if (normalizedCount === 0) {
+            likeCountSpan.style.display = 'none';
+            likeCountSpan.textContent = '';
+            return;
+        }
+        likeCountSpan.style.display = '';
+        likeCountSpan.textContent = normalizedCount.toLocaleString();
+    }
+
+    function applyInitialReactionState() {
+        if (!likeBtn || !dislikeBtn) return;
+        liked = initialUserReaction === 'like';
+        disliked = initialUserReaction === 'dislike';
+        likeBtn.classList.toggle('liked', liked);
+        dislikeBtn.classList.toggle('disliked', disliked);
     }
 
     // --- Fetch video metadata ---
@@ -797,16 +829,29 @@
         if(playIcon) playIcon.style.display='none';
         if(pauseIcon) pauseIcon.style.display='block';
         setHeroState('playing');
+        lastWatchTick = (performance && performance.now) ? performance.now() : Date.now();
     });
     video.addEventListener('pause', () => {
         if(playIcon) playIcon.style.display='block';
         if(pauseIcon) pauseIcon.style.display='none';
         if (!hlsInstance || hlsInstance.state !== 'loading') setHeroState('paused');
+        accumulateWatched(false);
     });
-    video.addEventListener('ended', () => setHeroState('paused'));
+    video.addEventListener('ended', () => {
+        accumulateWatched(false);
+        setHeroState('paused');
+    });
 
     video.addEventListener('timeupdate', () => {
         if (!video.duration) return;
+        // accumulate watched time based on clock ticks
+        if (lastWatchTick) {
+            const now = (performance && performance.now) ? performance.now() : Date.now();
+            const delta = Math.max(0, (now - lastWatchTick) / 1000);
+            trackedWatchedSeconds += Math.min(delta, 1);
+            if (trackedWatchedSeconds > video.duration) trackedWatchedSeconds = video.duration;
+            lastWatchTick = now;
+        }
         const percent = (video.currentTime / video.duration) * 100;
         if (progressCurrent) progressCurrent.style.width = percent + '%';
         if (progressThumb) progressThumb.style.left = percent + '%';
@@ -815,6 +860,7 @@
             const bufferedEnd = video.buffered.end(video.buffered.length-1);
             progressLoaded.style.width = (bufferedEnd / video.duration) * 100 + '%';
         }
+        submitViewIfEligible();
     });
 
     if (pipBtn) pipBtn.addEventListener('click', async () => {
@@ -950,6 +996,7 @@
     video.addEventListener('play', () => {
         // Start the auto-hide timer when video starts playing
         resetControlsTimer();
+        lastWatchTick = (performance && performance.now) ? performance.now() : Date.now();
     });
 
     video.addEventListener('pause', () => {
@@ -957,6 +1004,7 @@
         showControls();
         // Clear any pending hide timer
         clearTimeout(controlsHideTimer);
+        accumulateWatched(false);
     });
 
     // Handle fullscreen changes
@@ -972,6 +1020,13 @@
             // Entered fullscreen
             showControls();
             resetControlsTimer();
+        }
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            accumulateWatched(false);
+        } else {
+            if (!video.paused) lastWatchTick = (performance && performance.now) ? performance.now() : Date.now();
         }
     });
     // --- Keyboard shortcuts ---
@@ -997,6 +1052,7 @@
         video.addEventListener('play', () => {
             ambientCanvas.width = Math.max(video.videoWidth/4, 100);
             ambientCanvas.height = Math.max(video.videoHeight/4, 56);
+            lastWatchTick = (performance && performance.now) ? performance.now() : Date.now();
             drawAmbient();
         });
     }
@@ -1065,34 +1121,121 @@
     const shareCopyBtn = document.getElementById('shareCopyBtn');
     const unsubscribeConfirm = document.getElementById('confirmUnsubscribe');
 
+    const VIEW_THRESHOLD_PERCENT = 0.3;
+    let viewSubmitted = false;
+    // cumulative watch tracking
+    let trackedWatchedSeconds = 0;
+    let watchIntervalId = null;
+    let lastWatchTick = null;
+
+    function accumulateWatched(keepRunning = false) {
+        if (!lastWatchTick) return;
+        const now = (performance && performance.now) ? performance.now() : Date.now();
+        const delta = Math.max(0, (now - lastWatchTick) / 1000);
+        trackedWatchedSeconds += delta;
+        if (trackedWatchedSeconds > (video.duration || Infinity)) trackedWatchedSeconds = video.duration || trackedWatchedSeconds;
+        if (keepRunning) lastWatchTick = now; else lastWatchTick = null;
+    }
+
+    async function submitViewIfEligible() {
+        if (viewSubmitted || !video.duration || !isFinite(video.duration)) return;
+        const watchedSeconds = trackedWatchedSeconds;
+        const thresholdSeconds = video.duration * VIEW_THRESHOLD_PERCENT;
+        if (watchedSeconds < thresholdSeconds) return;
+
+        try {
+            const viewUrl = `${API_BASE}/videos/${VIDEO_ID}/view`;
+            const response = await fetch(viewUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            viewSubmitted = true;
+            console.log('View submitted to backend for video', VIDEO_ID);
+        } catch (err) {
+            console.warn('Failed to submit view:', err);
+        }
+    }
+
+    async function sendReaction(reactionType, method) {
+        if (!VIDEO_ID) throw new Error('Missing video id');
+        const url = `${API_BASE}/videos/${VIDEO_ID}/react/${reactionType}`;
+        const response = await fetch(url, {
+            method,
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    }
+
     // Emoji list (static)
     const emojiList = ['happy.png','sad.png','shocked.png','like.png','dislike.png','thank.png','angry.png','stupid.png','ok.png','iran.png'];
 
     // ===== Like / Dislike =====
     let liked = false, disliked = false;
     if (likeBtn) {
-        likeBtn.addEventListener('click', () => {
-            if (!liked) {
-                liked = true; disliked = false;
-                likeBtn.classList.add('liked'); dislikeBtn.classList.remove('disliked');
-                likeCountSpan.textContent = '124K';
-            } else {
-                liked = false;
-                likeBtn.classList.remove('liked');
-                likeCountSpan.textContent = '123K';
+        likeBtn.addEventListener('click', async () => {
+            const previousLiked = liked;
+            const previousDisliked = disliked;
+            try {
+                if (!liked) {
+                    liked = true;
+                    disliked = false;
+                    likeBtn.classList.add('liked');
+                    dislikeBtn?.classList.remove('disliked');
+                    const payload = await sendReaction('like', 'POST');
+                    if (payload?.likes_count != null) {
+                        renderLikeCount(payload.likes_count);
+                    }
+                } else {
+                    liked = false;
+                    likeBtn.classList.remove('liked');
+                    const payload = await sendReaction('like', 'DELETE');
+                    if (payload?.likes_count != null) {
+                        renderLikeCount(payload.likes_count);
+                    }
+                }
+            } catch (err) {
+                liked = previousLiked;
+                disliked = previousDisliked;
+                likeBtn?.classList.toggle('liked', liked);
+                dislikeBtn?.classList.toggle('disliked', disliked);
+                window.showToast?.(`Could not update like. ${err.message || err}`);
             }
         });
     }
     if (dislikeBtn) {
-        dislikeBtn.addEventListener('click', () => {
-            if (!disliked) {
-                disliked = true; liked = false;
-                dislikeBtn.classList.add('disliked'); likeBtn.classList.remove('liked');
-                likeCountSpan.textContent = '122K';
-            } else {
-                disliked = false;
-                dislikeBtn.classList.remove('disliked');
-                likeCountSpan.textContent = '123K';
+        dislikeBtn.addEventListener('click', async () => {
+            const previousLiked = liked;
+            const previousDisliked = disliked;
+            try {
+                if (!disliked) {
+                    disliked = true;
+                    liked = false;
+                    dislikeBtn.classList.add('disliked');
+                    likeBtn?.classList.remove('liked');
+                    const payload = await sendReaction('dislike', 'POST');
+                    if (payload?.likes_count != null) {
+                        renderLikeCount(payload.likes_count);
+                    }
+                } else {
+                    disliked = false;
+                    dislikeBtn.classList.remove('disliked');
+                    const payload = await sendReaction('dislike', 'DELETE');
+                    if (payload?.likes_count != null) {
+                        renderLikeCount(payload.likes_count);
+                    }
+                }
+            } catch (err) {
+                liked = previousLiked;
+                disliked = previousDisliked;
+                likeBtn?.classList.toggle('liked', liked);
+                dislikeBtn?.classList.toggle('disliked', disliked);
+                window.showToast?.(`Could not update dislike. ${err.message || err}`);
             }
         });
     }
