@@ -368,3 +368,72 @@ ul, ol { list-style: none; }
     width: 18px;
     height: 18px;
 }
+
+/* =====================================================================
+   Added for the API-backed video feed (js/videos-feed.js).
+   Nothing above this line was changed — these rules only add new
+   selectors or make the existing .video-card safe to render as an <a>.
+   ===================================================================== */
+
+/* .video-card is now rendered as <a class="video-card">...</a> instead of
+   <article>. Grid items are auto-blockified so layout already worked, but
+   being explicit avoids relying on that and keeps link defaults in check. */
+.video-card {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Infinite-scroll trigger element (kept invisible, needs a height to be
+   observable by IntersectionObserver). */
+.video-grid-sentinel {
+    height: 1px;
+}
+
+.video-grid-empty,
+.video-grid-error {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+}
+.video-grid-error .btn--link {
+    color: var(--accent);
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+}
+
+/* Skeleton loading cards, built from the same .video-card__* classes as
+   real cards so their size/spacing matches exactly. */
+.video-card--skeleton {
+    pointer-events: none;
+    cursor: default;
+}
+.video-card--skeleton:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: var(--hover-bg);
+}
+.skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+    animation: skeleton-sweep 1.4s infinite;
+}
+@keyframes skeleton-sweep {
+    100% { transform: translateX(100%); }
+}
+
+.skeleton-line {
+    border-radius: 4px;
+    margin-bottom: 8px;
+}

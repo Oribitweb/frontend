@@ -7,19 +7,34 @@ include 'includes/sidebar.php';
 ?>
 
 <main class="main-content" id="mainContent">
-    <div class="category-pills">
-        <button class="category-pill category-pill--active">All</button>
-        <button class="category-pill">Music</button>
-        <button class="category-pill">Gaming</button>
-        <button class="category-pill">Live Streams</button>
-        <button class="category-pill">Science</button>
-        <button class="category-pill">Technology</button>
-        <button class="category-pill">Art</button>
-        <button class="category-pill">Sports</button>
-        <button class="category-pill">Education</button>
-        <button class="category-pill">Podcasts</button>
+    <!--
+        data-category-id maps a pill to the backend `category_id`.
+        "All" (empty value) sends no category filter.
+        Replace the placeholder numeric IDs below with the real IDs
+        from your `categories` table.
+    -->
+    <div class="category-pills" id="categoryPills">
+        <button class="category-pill category-pill--active" data-category-id="">All</button>
+        <button class="category-pill" data-category-id="1">Music</button>
+        <button class="category-pill" data-category-id="2">Gaming</button>
+        <button class="category-pill" data-category-id="3">Live Streams</button>
+        <button class="category-pill" data-category-id="4">Science</button>
+        <button class="category-pill" data-category-id="5">Technology</button>
+        <button class="category-pill" data-category-id="6">Art</button>
+        <button class="category-pill" data-category-id="7">Sports</button>
+        <button class="category-pill" data-category-id="8">Education</button>
+        <button class="category-pill" data-category-id="9">Podcasts</button>
     </div>
+
     <div class="video-grid" id="videoGrid"></div>
+
+    <p class="video-grid-empty" id="videoGridEmpty" hidden>No videos found.</p>
+    <p class="video-grid-error" id="videoGridError" hidden>
+        Couldn't load videos. <button class="btn--link" id="videoGridRetry" type="button">Retry</button>
+    </p>
+
+    <!-- Infinite-scroll trigger -->
+    <div id="videoGridSentinel" class="video-grid-sentinel" aria-hidden="true"></div>
 </main>
 
 <!-- ==================== LOGIN POPUP ==================== -->
@@ -357,5 +372,6 @@ include 'includes/sidebar.php';
 
 <?php include 'includes/footer.php'; ?>
 <script src="js/main.js"></script>
+<script src="js/videos-feed.js" defer></script>
 </body>
 </html>
