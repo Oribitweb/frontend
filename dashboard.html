@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT — Dashboard</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/popups.css">
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header__inner">
+    <a href="index.html" class="header__logo"><div class="header__logo-fallback"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg><span>ORBIT</span></div></a>
+    <div class="header__search">
+      <form action="search.html" method="get" style="display:flex;flex:1;align-items:center;">
+        <input type="text" name="q" class="header__search-input" placeholder="Search..." autocomplete="off">
+        <button type="submit" class="header__search-btn" aria-label="Search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      </form>
+    </div>
+    <div class="header__actions">
+      <div class="create-container">
+        <button class="header__create-btn" id="createBtn" aria-label="Create"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <div class="create-dropdown" id="createDropdown"><div class="dropdown__section"><button class="dropdown__item">Upload Video</button><button class="dropdown__item">Upload Short</button><button class="dropdown__item">Community Post</button></div></div>
+      </div>
+      <button class="header__profile-btn" id="profileBtn" aria-label="Profile"><div class="header__profile-avatar" id="profileAvatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></button>
+      <div class="dropdown" id="profileDropdown"></div>
+    </div>
+  </div>
+</header>
+
+<aside class="sidebar sidebar--collapsed" id="sidebar">
+  <nav class="sidebar__nav">
+    <a href="index.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Explore</span></a>
+    <a href="trending.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Trending</span></a>
+    <a href="lives.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Live</span></a>
+    <a href="dashboard.html" class="sidebar__item sidebar__item--active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-3v12l-5-3"/></svg><span>Dashboard</span></a>
+  </nav>
+  <div class="sidebar__divider"></div>
+  <div class="sidebar__channels-title">Subscriptions</div>
+  <a href="channel.html" class="sidebar__channel"><div class="sidebar__channel-avatar" style="background:#00c853;">C</div><span>Channel Name</span></a>
+  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#ff3b30;">M</div><span>Music Lounge</span></a>
+  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#6495ed;">S</div><span>Space Today</span></a>
+  <button class="sidebar__show-more" id="showMoreChannels">Show more</button>
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+</aside>
+
+<main class="main-content" id="mainContent">
+  <div class="dash-header">
+    <div class="dash-header__text">
+      <h1 class="dash-header__title">Dashboard</h1>
+      <p class="dash-header__subtitle">Manage your videos and moderate comments in one place.</p>
+    </div>
+    <div class="dash-header__stats" id="dashboardStats">
+      <div class="dash-stat"><span class="dash-stat__value" id="statVideos">—</span><span class="dash-stat__label">Videos</span></div>
+      <div class="dash-stat"><span class="dash-stat__value" id="statComments">—</span><span class="dash-stat__label">Comments</span></div>
+      <div class="dash-stat dash-stat--warning"><span class="dash-stat__value" id="statPending">—</span><span class="dash-stat__label">Pending review</span></div>
+      <button class="dash-stat-refresh" id="refreshDashboard" title="Refresh" aria-label="Refresh dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+    </div>
+  </div>
+
+  <div class="dash-tabs" role="tablist">
+    <button class="dash-tab dash-tab--active" role="tab" data-tab="videos" aria-selected="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-3v12l-5-3"/></svg> My Videos</button>
+    <button class="dash-tab" role="tab" data-tab="comments" aria-selected="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Comments <span class="dash-tab__badge" id="commentsTabBadge" hidden>0</span></button>
+  </div>
+
+  <section class="dash-panel dash-panel--active" id="tabVideos" role="tabpanel">
+    <div class="dash-toolbar">
+      <div class="dash-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="videoSearch" placeholder="Search your videos…" aria-label="Search your videos"></div>
+      <div class="dash-toolbar__right">
+        <select id="filterStatus" aria-label="Filter by status"><option value="">All statuses</option><option value="published">Published</option><option value="draft">Draft</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="scheduled">Scheduled</option></select>
+        <select id="filterVisibility" aria-label="Filter by visibility"><option value="">All visibility</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
+        <select id="sortVideos" aria-label="Sort videos"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="views">Most viewed</option><option value="title">Title A–Z</option></select>
+        <div class="dash-view-toggle" role="group" aria-label="Layout">
+          <button type="button" class="dash-view-toggle__btn dash-view-toggle__btn--active" data-view="grid" aria-pressed="true" aria-label="Grid view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+          <button type="button" class="dash-view-toggle__btn" data-view="list" aria-pressed="false" aria-label="List view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
+        </div>
+        <button type="button" class="btn btn--ghost btn--small" id="selectModeToggle">Select</button>
+      </div>
+    </div>
+
+    <div class="dash-bulkbar" id="videoBulkBar" hidden>
+      <span class="dash-bulkbar__count"><strong id="videoBulkCount">0</strong> selected</span>
+      <div class="dash-bulkbar__actions">
+        <select id="bulkVisibility" aria-label="Change visibility for selected videos"><option value="">Change visibility to…</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
+        <button type="button" class="btn btn--primary btn--small" id="bulkVisibilityApply">Apply</button>
+        <button type="button" class="btn btn--ghost btn--small" id="bulkClear">Cancel</button>
+      </div>
+    </div>
+
+    <p class="dash-result-count" id="filterResult"></p>
+    <div class="dash-video-grid" id="videoGrid" data-view="grid"></div>
+
+    <div class="dash-skeleton-grid" id="videoSkeleton">
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
+    </div>
+
+    <div id="videoGridEmpty" class="dash-empty" hidden>
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>
+      <h3>No videos match your filters</h3><p>Try adjusting or clearing your filters.</p>
+      <button type="button" class="btn btn--ghost btn--small" id="clearFilters">Clear filters</button>
+    </div>
+
+    <div id="videoGridError" class="dash-empty dash-empty--error" hidden>
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <h3>Couldn't load your videos</h3><p>Check your connection and try again.</p>
+      <button type="button" class="btn btn--primary btn--small" id="retryVideos">Retry</button>
+    </div>
+
+    <div id="videoGridSentinel" class="dash-sentinel"></div>
+    <div class="dash-loadmore" id="videoLoadingMore" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/></svg> Loading more…</div>
+  </section>
+
+  <section class="dash-panel" id="tabComments" role="tabpanel">
+    <div class="dash-comments">
+      <aside class="dash-comments__sidebar">
+        <div class="dash-comments__field"><label for="commentVideoSelector">Video</label><select id="commentVideoSelector"><option value="">— Select a video —</option></select></div>
+        <div class="dash-comments__field"><label for="commentSearch">Search</label><div class="dash-search dash-search--compact"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="commentSearch" placeholder="Author or text…" disabled></div></div>
+        <div class="dash-chips" id="commentFilterChips" role="tablist" aria-label="Filter comments">
+          <button type="button" class="dash-chip dash-chip--active" data-filter="all">All</button>
+          <button type="button" class="dash-chip" data-filter="pending">Pending</button>
+          <button type="button" class="dash-chip" data-filter="approved">Approved</button>
+        </div>
+        <div class="dash-comments__bulk" id="commentBulkBar" hidden>
+          <label class="dash-checkbox"><input type="checkbox" id="selectAllPending"><span>Select all pending</span></label>
+          <button type="button" class="btn btn--primary btn--small" id="approveSelectedBtn" disabled>Approve selected</button>
+        </div>
+      </aside>
+      <div class="dash-comments__main">
+        <div id="commentsContainer">
+          <div class="dash-empty dash-empty--inline">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <p>Select a video on the left to view and moderate its comments.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Edit Video Modal -->
+  <div class="popup" id="editVideoPopup" role="dialog" aria-modal="true" aria-labelledby="editVideoTitle">
+    <div class="popup__panel popup__panel--dashboard-edit">
+      <button class="popup__close" data-close="editVideoPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="popup__icon-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+      <h2 class="popup__title" id="editVideoTitle">Edit Video</h2>
+      <p class="popup__subtitle">Update your video's information</p>
+      <form id="editVideoForm" novalidate>
+        <input type="hidden" id="editVideoId" value="">
+        <div class="dash-form-section"><h4 class="dash-form-section__title">Details</h4>
+          <div class="form-grid">
+            <div class="input-group full-width"><label for="editTitle">Title <span class="required">*</span></label><input type="text" id="editTitle" placeholder="Video title" required><span class="dash-char-count" id="editTitleCount">0 characters</span></div>
+            <div class="input-group full-width"><label for="editDescription">Description</label><textarea id="editDescription" placeholder="Describe your video..."></textarea></div>
+          </div>
+        </div>
+        <div class="dash-form-section"><h4 class="dash-form-section__title">Publishing</h4>
+          <div class="form-grid">
+            <div class="input-group"><label for="editVisibility">Visibility</label><select id="editVisibility"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
+            <div class="input-group"><label for="editCategory">Category</label><select id="editCategory"></select></div>
+            <div class="input-group"><label for="editLanguage">Language</label><select id="editLanguage"><option value="en">English</option><option value="fa">Persian</option><option value="es">Spanish</option><option value="fr">French</option><option value="ar">Arabic</option><option value="de">German</option></select></div>
+            <div class="input-group"><label for="editLicense">License</label><select id="editLicense"><option value="standard">Orbit Standard License</option><option value="cc">Creative Commons</option></select></div>
+            <div class="input-group full-width"><label for="editScheduledAt">Schedule (optional)</label><input type="datetime-local" id="editScheduledAt"></div>
+          </div>
+        </div>
+        <div class="dash-form-section"><h4 class="dash-form-section__title">Settings</h4>
+          <div class="form-grid"><div class="input-group full-width">
+            <div class="checkbox-group"><input type="checkbox" id="editAllowComments"><label for="editAllowComments">Allow comments on this video</label></div>
+            <div class="checkbox-group"><input type="checkbox" id="editMadeForKids"><label for="editMadeForKids">Made for kids</label></div>
+          </div></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn--secondary" data-close="editVideoPopup">Cancel</button>
+          <button type="submit" class="btn btn--primary" id="editVideoSubmit">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Comment Modal -->
+  <div class="popup" id="editCommentPopup" role="dialog" aria-modal="true" aria-labelledby="editCommentTitle">
+    <div class="popup__panel popup__panel--dashboard-edit" style="max-width:480px;">
+      <button class="popup__close" data-close="editCommentPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="popup__icon-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <h2 class="popup__title" id="editCommentTitle">Edit Comment</h2>
+      <p class="popup__subtitle">Update the comment content</p>
+      <form id="editCommentForm" novalidate>
+        <input type="hidden" id="editCommentId" value="">
+        <div class="input-group full-width"><label for="editCommentBody">Comment <span class="required">*</span></label><textarea id="editCommentBody" rows="4" placeholder="Edit comment..." required></textarea></div>
+        <div class="input-group full-width">
+          <div class="checkbox-group"><input type="checkbox" id="editCommentApproved"><label for="editCommentApproved">Approved</label></div>
+          <div class="checkbox-group"><input type="checkbox" id="editCommentPinned"><label for="editCommentPinned">Pinned</label></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn--secondary" data-close="editCommentPopup">Cancel</button>
+          <button type="submit" class="btn btn--primary">Save Comment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="popup" id="confirmPopup" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="popup__panel popup__panel--confirm">
+      <button class="popup__close" data-close="confirmPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="popup__icon-ring popup__icon-ring--danger"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></div>
+      <h2 class="popup__title" id="confirmTitle">Delete this?</h2>
+      <p class="popup__subtitle" id="confirmBody">This action can't be undone.</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn--secondary" id="confirmCancelBtn">Cancel</button>
+        <button type="button" class="btn btn--danger" id="confirmOkBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+</main>
+
+<div class="overlay" id="overlay"></div>
+<script src="js/core.js"></script>
+<script src="js/dropdown.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
