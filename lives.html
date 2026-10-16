@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT — Live Streams</title>
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/popups.css">
+<link rel="stylesheet" href="css/lives.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header__inner">
+    <a href="index.html" class="header__logo"><div class="header__logo-fallback"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg><span>ORBIT</span></div></a>
+    <div class="header__search">
+      <form action="search.html" method="get" style="display:flex;flex:1;align-items:center;">
+        <input type="text" name="q" class="header__search-input" placeholder="Search..." autocomplete="off">
+        <button type="submit" class="header__search-btn" aria-label="Search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      </form>
+    </div>
+    <div class="header__actions">
+      <div class="create-container">
+        <button class="header__create-btn" id="createBtn" aria-label="Create"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <div class="create-dropdown" id="createDropdown"><div class="dropdown__section"><button class="dropdown__item">Upload Video</button><button class="dropdown__item">Upload Short</button><button class="dropdown__item">Community Post</button></div></div>
+      </div>
+      <button class="header__profile-btn" id="profileBtn" aria-label="Profile"><div class="header__profile-avatar" id="profileAvatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></button>
+      <div class="dropdown" id="profileDropdown"></div>
+    </div>
+  </div>
+</header>
+
+<aside class="sidebar sidebar--collapsed" id="sidebar">
+  <nav class="sidebar__nav">
+    <a href="index.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Explore</span></a>
+    <a href="trending.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Trending</span></a>
+    <a href="lives.html" class="sidebar__item sidebar__item--active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Live</span></a>
+    <a href="dashboard.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-3v12l-5-3"/></svg><span>Dashboard</span></a>
+  </nav>
+  <div class="sidebar__divider"></div>
+  <div class="sidebar__channels-title">Subscriptions</div>
+  <a href="channel.html" class="sidebar__channel"><div class="sidebar__channel-avatar" style="background:#00c853;">C</div><span>Channel Name</span></a>
+  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#ff3b30;">M</div><span>Music Lounge</span></a>
+  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#6495ed;">S</div><span>Space Today</span></a>
+  <button class="sidebar__show-more" id="showMoreChannels">Show more</button>
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+</aside>
+
+<main class="lives-grid" id="livesGrid">
+  <section class="featured-section" id="featuredSection">
+    <div class="featured-card" id="featuredCard"></div>
+    <div class="featured-dots" id="featuredDots"></div>
+    <a href="#" class="go-live-btn" id="goLiveBtn">GO LIVE!</a>
+  </section>
+  <section class="top-streams">
+    <h2 class="section-title">Top Live Now</h2>
+    <div class="streams-grid" id="topStreamsGrid"></div>
+  </section>
+  <section class="categories-row">
+    <h2 class="section-title">Categories</h2>
+    <div class="categories-grid" id="categoriesGrid"></div>
+    <button class="btn btn--text show-more-categories" id="showMoreCategories" style="display:none;">Show more</button>
+  </section>
+  <section class="remaining-streams">
+    <h2 class="section-title">More Streams</h2>
+    <div class="streams-grid" id="remainingStreamsGrid"></div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay"></div>
+<div class="toast-container" id="toastContainer"></div>
+<script src="js/core.js"></script>
+<script src="js/dropdown.js"></script>
+<script src="js/categories.js"></script>
+<script src="js/lives.js"></script>
+</body>
+</html>
