@@ -382,10 +382,13 @@
         });
     }
 
+    const AUTH_SWITCH_ACTIONS = ['switchToSignup', 'switchToLogin', 'forgotPassword', 'backToLogin'];
+
     document.addEventListener('click', e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const action = btn.dataset.action;
+        if (!AUTH_SWITCH_ACTIONS.includes(action)) return; // not ours — let other handlers deal with it
         window.closeAllPopups();
         if (action === 'switchToSignup') window.openPopupById('signupPopup');
         else if (action === 'switchToLogin') window.openPopupById('loginPopup');
