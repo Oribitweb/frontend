@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = window.API_BASE;
     const TOAST_LIFETIME = 4000;
     const PAGE_SIZE = 24;
 

@@ -1,5 +1,5 @@
 // core.js – Shared functions across all pages
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.API_BASE;
 let currentUser = null;
 const html = document.documentElement;
 

@@ -11,8 +11,8 @@
         return;
     }
 
-    const API_BASE = window.API_BASE_URL || 'http://localhost:8000';
-    const WS_BASE = window.WS_BASE_URL || 'ws://localhost:8000';
+    const API_BASE = window.API_BASE;
+    const WS_BASE = window.WS_BASE;
     const video = document.getElementById('mainVideo');
     const VIDEO_ID = String(window.VIDEO_ID || '').trim();
 

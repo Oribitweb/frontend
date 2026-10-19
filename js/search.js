@@ -4,6 +4,7 @@
     const loader = document.getElementById('searchLoader');
     const noResults = document.getElementById('noResults');
     const resultsCountSpan = document.getElementById('resultsCount');
+    const API_BASE = window.API_BASE;
 
     if (!searchQuery) {
         loader.style.display = 'none';

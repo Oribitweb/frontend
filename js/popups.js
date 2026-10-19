@@ -3,6 +3,7 @@
 (function() {
     const MAX_CHARS = 5000;
     const MAX_TAGS = 500;
+    const API_BASE = window.API_BASE;
     let tags = [];
     
     let activeWebSocket = null;

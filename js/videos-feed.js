@@ -15,7 +15,7 @@
 
   // Adjust to wherever your FastAPI app mounts the `public` router,
   // e.g. app.include_router(public.router, prefix="/api/v1").
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = window.API_BASE;
   const PAGE_SIZE = 24;
   const SKELETON_COUNT = 10;
 

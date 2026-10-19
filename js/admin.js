@@ -1,7 +1,7 @@
 // ===== Admin Panel Logic (Connected to Backend) =====
 (function() {
     // API Base
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = window.API_BASE;
 
     // ---------------------------------------
     // State
