@@ -224,7 +224,9 @@ async function logoutUser() {
 
 async function fetchCurrentUser() {
     try {
-        const res = await fetch(`${API_BASE}/users/me`);
+        const res = await fetch(`${API_BASE}/users/me`, {
+            credentials: 'include'      // <-- add this
+        });
         if (res.ok) {
             const user = await res.json();
             currentUser = user;
