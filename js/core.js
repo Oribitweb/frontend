@@ -1,7 +1,20 @@
 // core.js – Shared functions across all pages
-const API_BASE = window.API_BASE;
+
+// ===== Config =====
+// Strip trailing slashes so we never request ".../​/users/me"
+const API_BASE = String(window.API_BASE || '').replace(/\/+$/, '');
 let currentUser = null;
 const html = document.documentElement;
+
+// ===== Debug logging (set to false when finished) =====
+const DEBUG = true;
+const dbg = (...args) => {
+    if (DEBUG) console.log('%c[auth]', 'color:#0a0;font-weight:bold', ...args);
+};
+dbg('API_BASE =', JSON.stringify(API_BASE));
+// NOTE: access_token / refresh_token are HttpOnly, so JavaScript can never read them.
+// The browser attaches them automatically. Check the real "Cookie:" request header
+// in DevTools -> Network -> (request) -> Headers, and log tokens on the backend.
 
 // ===== Helper =====
 function escapeHtml(str) {
@@ -30,7 +43,7 @@ function setTheme(theme) {
 }
 
 // Load saved theme
-(function() {
+(function () {
     const saved = localStorage.getItem('orbit-theme') || 'dark';
     setTheme(saved);
 })();
@@ -89,103 +102,108 @@ if (overlay) {
 //  AUTH & TOKEN REFRESH – GLOBAL FETCH OVERRIDE
 // =============================================
 
-// Preserve the original fetch so we can call it directly for token refresh
+// Preserve the original fetch so we can call it directly
 const originalFetch = window.fetch;
 
 // Refresh state (centralised queue)
 let isRefreshing = false;
 let refreshPromise = null;
-let failedQueue = [];   // holds pending requests that hit 401
+let failedQueue = [];   // pending requests that hit 401
 
-function processQueue(error, token) {
-    failedQueue.forEach(({ resolve, reject, url, options }) => {
+function processQueue(error) {
+    const queue = failedQueue;
+    failedQueue = [];
+    dbg('processQueue: error =', error ? error.message : null, '| queued requests =', queue.length);
+
+    queue.forEach(({ resolve, reject, url, options }) => {
         if (error) {
-            reject(error);                     // refresh failed → reject all
+            reject(error);
         } else {
-            // Retry with a marker so the interceptor knows it's a retry
-            const retryOptions = { ...options, __retry: true };
-            originalFetch(url, retryOptions)   // use original fetch to keep it simple
-                .then(resolve, reject);
+            // Retry via originalFetch so the interceptor can't loop
+            originalFetch(url, options)
+                .then(res => {
+                    dbg('RETRY', options.method || 'GET', url, '→', res.status,
+                        '| redirected:', res.redirected, '| final url:', res.url);
+                    resolve(res);
+                })
+                .catch(reject);
         }
     });
-    failedQueue = [];
 }
 
 /**
- * Perform a token refresh. Only one refresh call can be in progress at a time.
- * Returns a promise that resolves when the refresh completes (or rejects on failure).
+ * Perform a token refresh. Only one refresh can be in flight at a time.
  */
-async function refreshToken() {
+function refreshToken() {
     if (isRefreshing) return refreshPromise;
 
     isRefreshing = true;
+    dbg('REFRESH starting');
+
     refreshPromise = originalFetch(`${API_BASE}/refresh`, {
         method: 'POST',
         credentials: 'include'
     })
-    .then(res => {
-        if (!res.ok) throw new Error('Refresh failed');
-        return res.json();   // cookie is set by backend, we only need success signal
-    })
-    .then(data => {
-        processQueue(null, data.access_token);
-        return data;
-    })
-    .catch(err => {
-        processQueue(err, null);
-        // Optionally force logout here
-        throw err;
-    })
-    .finally(() => {
-        isRefreshing = false;
-        refreshPromise = null;
-    });
+        .then(async res => {
+            dbg('REFRESH response:', res.status, '| redirected:', res.redirected, '| final url:', res.url);
+            if (!res.ok) throw new Error(`Refresh failed (${res.status})`);
+            // The backend sets the new cookie; body is optional
+            return res.json().catch(() => ({}));
+        })
+        .then(data => {
+            processQueue(null);
+            return data;
+        })
+        .catch(err => {
+            processQueue(err);
+            throw err;
+        })
+        .finally(() => {
+            isRefreshing = false;
+            refreshPromise = null;
+        });
 
     return refreshPromise;
 }
 
+// Endpoints that must NOT trigger refresh-and-retry on 401
+// (a wrong password returns 401 and should surface as an error, not a refresh)
+const AUTH_PATH_RE = /\/(login|register|refresh|logout)\/?(\?.*)?$/;
+
 /**
- * Override global fetch to intercept 401 responses.
- * Any request that gets a 401 (except the /refresh endpoint itself, and retries)
- * is automatically queued and retried after a successful token refresh.
+ * Override global fetch:
+ *  - always sends credentials
+ *  - on 401 (non-auth endpoints) refreshes the token once and retries
  */
-window.fetch = async function(url, options = {}) {
-    // Bypass interceptor for /refresh calls (they use originalFetch anyway)
-    if (url === `${API_BASE}/refresh` || options.__bypassInterceptor) {
-        return originalFetch(url, options);
-    }
-
-    // Normal request – send with credentials
+window.fetch = async function (url, options = {}) {
+    const method = options.method || 'GET';
     const fetchOptions = { ...options, credentials: 'include' };
-    const res = await originalFetch(url, fetchOptions);
 
-    // If not 401, or if it's already a retry (to avoid infinite loops), return response
-    if (res.status !== 401 || options.__retry) {
-        return res;
+    // Auth endpoints and explicit bypass: no refresh logic
+    if (AUTH_PATH_RE.test(String(url)) || options.__bypassInterceptor) {
+        const r = await originalFetch(url, fetchOptions);
+        dbg('AUTH CALL', method, url, '→', r.status, '| redirected:', r.redirected, '| final url:', r.url);
+        return r;
     }
 
-    // --- 401 detected, need to refresh ---
-    // Start the refresh (no-op if already in progress)
-    const refreshTask = refreshToken();
+    const res = await originalFetch(url, fetchOptions);
+    dbg('REQUEST', method, url, '→', res.status, '| redirected:', res.redirected, '| final url:', res.url);
 
-    // Queue this request to be retried after the refresh completes
+    if (res.status !== 401) return res;
+
+    // 401 → queue this request, then make sure a refresh is running
+    dbg('401 received, queueing + refreshing for', url);
     return new Promise((resolve, reject) => {
-        failedQueue.push({
-            resolve,
-            reject,
-            url,
-            options: fetchOptions   // original options with credentials
-        });
+        failedQueue.push({ resolve, reject, url, options: fetchOptions });
+        refreshToken().catch(err => dbg('REFRESH FAILED:', err.message));
     });
 };
-
-// (End of global fetch override)
 
 // =============================================
 //  END OF AUTH UPDATE
 // =============================================
 
-// ===== Login / Register / Logout (unchanged) =====
+// ===== Login / Register / Logout =====
 async function loginUser(credentials) {
     const res = await fetch(`${API_BASE}/login`, {
         method: 'POST',
@@ -224,18 +242,21 @@ async function logoutUser() {
 
 async function fetchCurrentUser() {
     try {
-        const res = await fetch(`${API_BASE}/users/me`, {
-            credentials: 'include'      // <-- add this
-        });
+        const res = await fetch(`${API_BASE}/users/me`, { credentials: 'include' });
+        dbg('fetchCurrentUser →', res.status);
         if (res.ok) {
             const user = await res.json();
+            dbg('fetchCurrentUser user:', user);
             currentUser = user;
             window.currentUser = user;
         } else {
+            dbg('fetchCurrentUser body:', await res.text().catch(() => ''));
             currentUser = null;
             window.currentUser = null;
         }
     } catch (err) {
+        // Expected for visitors who are not logged in (refresh fails too)
+        dbg('fetchCurrentUser error:', err && err.message);
         currentUser = null;
         window.currentUser = null;
     }
