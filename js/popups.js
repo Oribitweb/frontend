@@ -1,6 +1,6 @@
 // popups.js – Handles popup forms and UI interactions
 // Includes WebSocket with first-message auth (works with HttpOnly cookies)
-(function() {
+function initPopups() {
     const MAX_CHARS = 5000;
     const MAX_TAGS = 500;
     const API_BASE = window.API_BASE;
@@ -306,18 +306,31 @@
     }
 
     // ===== Auth Forms =====
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearFormErrors(loginForm);
-            const username = document.getElementById('loginUsername')?.value.trim();
-            const password = document.getElementById('loginPassword')?.value;
+    // Delegated on document: works even if the popup HTML is inserted after this script runs.
+    // e.preventDefault() is called synchronously, so the browser never does a native form submit
+    // (which would reload the page and drop the login request).
+
+    // Backend errors come back as JSON text like {"detail":"..."}; show just the detail.
+    function parseError(err) {
+        const raw = (err && err.message) || '';
+        try {
+            const j = JSON.parse(raw);
+            if (typeof j.detail === 'string') return j.detail;
+        } catch (_) { /* not JSON */ }
+        return raw;
+    }
+
+    const authHandlers = {
+        loginForm: async (form) => {
+            clearFormErrors(form);
+            const username = form.querySelector('#loginUsername')?.value.trim();
+            const password = form.querySelector('#loginPassword')?.value;
             if (!username || !password) {
-                showFieldError(loginForm, 'Please fill all fields');
+                showFieldError(form, 'Please fill all fields');
                 return;
             }
             try {
+                console.log('[popups] login submit for', username);
                 await window.loginUser({ username, password });
                 window.closeAllPopups();
                 await window.fetchCurrentUser();
@@ -327,31 +340,31 @@
                     window.showToast(`Welcome back, ${window.currentUser.username}!`);
                 }
             } catch (err) {
-                const msg = err.message.includes('Invalid') ? 'Invalid username or password' : 'Login failed';
-                showFieldError(loginForm, msg);
+                console.error('[popups] login failed:', err);
+                const detail = parseError(err);
+                const msg = /invalid|incorrect|credentials/i.test(detail)
+                    ? 'Invalid username or password'
+                    : (detail && detail.length < 120 ? detail : 'Login failed');
+                showFieldError(form, msg);
             }
-        });
-    }
+        },
 
-    const signupForm = document.getElementById('signupForm');
-    if (signupForm) {
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearFormErrors(signupForm);
-            const username = document.getElementById('signupUsername')?.value.trim();
-            const email = document.getElementById('signupEmail')?.value.trim();
-            const password = document.getElementById('signupPassword')?.value;
-            const confirmPassword = document.getElementById('signupConfirmPassword')?.value;
+        signupForm: async (form) => {
+            clearFormErrors(form);
+            const username = form.querySelector('#signupUsername')?.value.trim();
+            const email = form.querySelector('#signupEmail')?.value.trim();
+            const password = form.querySelector('#signupPassword')?.value;
+            const confirmPassword = form.querySelector('#signupConfirmPassword')?.value;
             if (!username || !email || !password || !confirmPassword) {
-                showFieldError(signupForm, 'All required fields must be filled');
+                showFieldError(form, 'All required fields must be filled');
                 return;
             }
             if (password !== confirmPassword) {
-                showFieldError(signupForm, 'Passwords do not match', 'signupPassword');
+                showFieldError(form, 'Passwords do not match', 'signupPassword');
                 return;
             }
             if (password.length < 6) {
-                showFieldError(signupForm, 'Password must be at least 6 characters', 'signupPassword');
+                showFieldError(form, 'Password must be at least 6 characters', 'signupPassword');
                 return;
             }
             try {
@@ -360,28 +373,32 @@
                 window.openPopupById('loginPopup');
                 window.showToast('Account created! Please log in.');
             } catch (err) {
-                let errorMsg = err.message;
+                console.error('[popups] register failed:', err);
+                let errorMsg = parseError(err);
                 if (errorMsg.includes('Username already registered')) errorMsg = 'Username already exists';
                 else if (errorMsg.includes('Email already registered')) errorMsg = 'Email already exists';
-                showFieldError(signupForm, errorMsg);
+                showFieldError(form, errorMsg || 'Registration failed');
             }
-        });
-    }
+        },
 
-    const forgotForm = document.getElementById('forgotForm');
-    if (forgotForm) {
-        forgotForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('forgotEmail')?.value.trim();
+        forgotForm: async (form) => {
+            const email = form.querySelector('#forgotEmail')?.value.trim();
             if (email) {
                 window.showToast('If this email exists, you will receive a reset link (feature coming soon).');
                 window.closeAllPopups();
                 window.openPopupById('loginPopup');
             } else {
-                showFieldError(forgotForm, 'Email is required');
+                showFieldError(form, 'Email is required');
             }
-        });
-    }
+        }
+    };
+
+    document.addEventListener('submit', (e) => {
+        const handler = authHandlers[e.target && e.target.id];
+        if (!handler) return;          // not an auth form (e.g. uploadForm has its own handler)
+        e.preventDefault();
+        handler(e.target);
+    });
 
     const AUTH_SWITCH_ACTIONS = ['switchToSignup', 'switchToLogin', 'forgotPassword', 'backToLogin'];
 
@@ -898,4 +915,11 @@
     window.addEventListener('beforeunload', () => {
         closeWebSocket();
     });
-})();
+}
+
+// Run after the DOM is parsed (getElementById calls above need the elements to exist)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPopups);
+} else {
+    initPopups();
+}
