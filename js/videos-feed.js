@@ -124,7 +124,7 @@
     // back to a non-navigating placeholder rather than linking to
     // "videos/undefined".
     const href = video.public_id
-    ? `/video.php?id=${encodeURIComponent(video.public_id)}`
+    ? `video.html?id=${encodeURIComponent(video.public_id)}`
     : '#';
 
     const thumbImg = video.thumbnail_url

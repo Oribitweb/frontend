@@ -8,18 +8,18 @@
     const toastContainer = document.getElementById('toastContainer');
 
     const liveStreams = [
-        { title: "Exploring the Cosmos", channel: "Channel Name", category: "Minecraft", viewers: 42.0, thumbnail: "assets/thumbnail.png", url: "live.php", verified: true },
-        { title: "League of Legends Finals", channel: "Esports Arena", category: "FiveM", viewers: 33.7, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Late Night Jazz", channel: "Music Lounge", category: "Just Chatting", viewers: 5.7, thumbnail: "assets/thumbnail.png", url: "live.php", verified: true },
-        { title: "Morning Talk Show", channel: "Daily Chat", category: "Just Chatting", viewers: 3.1, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "SpaceX Launch", channel: "Space Today", category: "Just Chatting", viewers: 15.3, thumbnail: "assets/thumbnail.png", url: "live.php", verified: true },
-        { title: "FIFA Tournament", channel: "Sports Central", category: "Gaming", viewers: 12.4, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Minecraft Build Battle", channel: "BlockMaster", category: "Just Chatting", viewers: 6.9, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "COD Mobile Ranked", channel: "ProSniper", category: "Call of Duty Mobile", viewers: 9.5, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Philosophy Roundtable", channel: "Deep Thinkers", category: "Just Chatting", viewers: 2.4, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Acoustic Session", channel: "Indie Vibes", category: "Just Chatting", viewers: 1.8, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Speedrun Any%", channel: "SpeedDemon", category: "Music", viewers: 4.2, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false },
-        { title: "Cooking Masterclass", channel: "ChefLive", category: "IRL", viewers: 7.3, thumbnail: "assets/thumbnail.png", url: "live.php", verified: false }
+        { title: "Exploring the Cosmos", channel: "Channel Name", category: "Minecraft", viewers: 42.0, thumbnail: "assets/thumbnail.png", url: "live.html", verified: true },
+        { title: "League of Legends Finals", channel: "Esports Arena", category: "FiveM", viewers: 33.7, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Late Night Jazz", channel: "Music Lounge", category: "Just Chatting", viewers: 5.7, thumbnail: "assets/thumbnail.png", url: "live.html", verified: true },
+        { title: "Morning Talk Show", channel: "Daily Chat", category: "Just Chatting", viewers: 3.1, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "SpaceX Launch", channel: "Space Today", category: "Just Chatting", viewers: 15.3, thumbnail: "assets/thumbnail.png", url: "live.html", verified: true },
+        { title: "FIFA Tournament", channel: "Sports Central", category: "Gaming", viewers: 12.4, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Minecraft Build Battle", channel: "BlockMaster", category: "Just Chatting", viewers: 6.9, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "COD Mobile Ranked", channel: "ProSniper", category: "Call of Duty Mobile", viewers: 9.5, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Philosophy Roundtable", channel: "Deep Thinkers", category: "Just Chatting", viewers: 2.4, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Acoustic Session", channel: "Indie Vibes", category: "Just Chatting", viewers: 1.8, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Speedrun Any%", channel: "SpeedDemon", category: "Music", viewers: 4.2, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false },
+        { title: "Cooking Masterclass", channel: "ChefLive", category: "IRL", viewers: 7.3, thumbnail: "assets/thumbnail.png", url: "live.html", verified: false }
     ];
 
     const sorted = [...liveStreams].sort((a, b) => b.viewers - a.viewers);

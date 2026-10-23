@@ -73,6 +73,15 @@ document.addEventListener('click', e => {
     }
 });
 
+// Open popups with data-popup="popupId" buttons (e.g. create-dropdown items)
+document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-popup]');
+    if (!btn) return;
+    const createDropdown = document.getElementById('createDropdown');
+    if (createDropdown) createDropdown.classList.remove('active');
+    openPopupById(btn.dataset.popup);
+});
+
 // Close with Esc
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && currentPopup) {

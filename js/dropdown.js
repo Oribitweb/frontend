@@ -194,7 +194,7 @@
             settingsBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 profileDropdown.classList.remove('active');
-                window.location.href = 'settings.php';
+                window.location.href = 'settings.html';
             });
         }
         const myVideosBtn = document.getElementById('dropdownMyVideosBtn');
