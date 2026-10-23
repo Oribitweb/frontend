@@ -124,6 +124,59 @@ const SHARED_POPUPS = {
     </div>
 </div>`,
 
+    channelPopup: `
+<div class="popup" id="channelPopup" role="dialog" aria-modal="true" aria-labelledby="channelTitle">
+    <div class="popup__panel popup__panel--wide">
+        <button class="popup__close" data-close="channelPopup" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="popup__icon-ring">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+        </div>
+        <h2 class="popup__title" id="channelTitle">Create Channel</h2>
+        <p class="popup__subtitle">Launch your own corner of the ORBIT universe</p>
+
+        <form class="popup__form" id="channelForm" novalidate>
+            <div class="input-group">
+                <label for="channelName">Channel Name <span class="required">*</span></label>
+                <input type="text" id="channelName" placeholder="1–100 characters" maxlength="100" required>
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelHandle">Handle <span class="required">*</span></label>
+                <input type="text" id="channelHandle" placeholder="letters, numbers, underscores (max 30)" maxlength="30" required autocomplete="off">
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelDescription">Description</label>
+                <textarea id="channelDescription" rows="3" maxlength="10000" placeholder="Tell viewers what your channel is about..."></textarea>
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelAvatarUrl">Avatar URL</label>
+                <input type="url" id="channelAvatarUrl" placeholder="https://example.com/avatar.png" maxlength="500">
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelBannerUrl">Banner URL</label>
+                <input type="url" id="channelBannerUrl" placeholder="https://example.com/banner.png" maxlength="500">
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelWebsite">Website</label>
+                <input type="url" id="channelWebsite" placeholder="https://example.com" maxlength="500">
+                <span class="input-group__error"></span>
+            </div>
+            <div class="input-group">
+                <label for="channelContactEmail">Contact Email</label>
+                <input type="email" id="channelContactEmail" placeholder="contact@example.com" maxlength="255">
+                <span class="input-group__error"></span>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Create Channel</button>
+        </form>
+    </div>
+</div>`,
+
     uploadPopup: `
 <div class="popup" id="uploadPopup" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
     <div class="popup__panel popup__panel--upload">
@@ -736,6 +789,87 @@ function initPopups() {
             } else {
                 showFieldError(form, 'Email is required');
             }
+        },
+
+        // POST /channels/ – mirrors backend ChannelCreate schema
+        channelForm: async (form) => {
+            clearFormErrors(form);
+
+            if (!window.currentUser) {
+                window.showToast('Please log in to create a channel.');
+                window.openPopupById('loginPopup');
+                return;
+            }
+
+            const name = form.querySelector('#channelName')?.value.trim();
+            // A leading @ is convenient to type but not allowed by the handle pattern
+            const handle = (form.querySelector('#channelHandle')?.value.trim() || '').replace(/^@+/, '');
+            const description = form.querySelector('#channelDescription')?.value.trim();
+            const avatar_url = form.querySelector('#channelAvatarUrl')?.value.trim();
+            const banner_url = form.querySelector('#channelBannerUrl')?.value.trim();
+            const website = form.querySelector('#channelWebsite')?.value.trim();
+            const contact_email = form.querySelector('#channelContactEmail')?.value.trim();
+
+            if (!name) { showFieldError(form, 'Channel name is required', 'channelName'); return; }
+            if (!handle) { showFieldError(form, 'Handle is required', 'channelHandle'); return; }
+            if (!/^[a-zA-Z0-9_]{1,30}$/.test(handle)) {
+                showFieldError(form, 'Handle must be 1–30 characters: letters, numbers, underscores', 'channelHandle');
+                return;
+            }
+            const urlFields = [['channelAvatarUrl', avatar_url], ['channelBannerUrl', banner_url], ['channelWebsite', website]];
+            for (const [fieldId, value] of urlFields) {
+                if (!value) continue;
+                let valid = false;
+                try { const u = new URL(value); valid = u.protocol === 'http:' || u.protocol === 'https:'; } catch (_) {}
+                if (!valid) { showFieldError(form, 'Must be a valid http(s) URL', fieldId); return; }
+            }
+            if (contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) {
+                showFieldError(form, 'Must be a valid email address', 'channelContactEmail');
+                return;
+            }
+
+            const payload = { name, handle };
+            if (description) payload.description = description;
+            if (avatar_url) payload.avatar_url = avatar_url;
+            if (banner_url) payload.banner_url = banner_url;
+            if (website) payload.website = website;
+            if (contact_email) payload.contact_email = contact_email;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                const response = await window.fetch(`${API_BASE}/channels/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    let detail = `Request failed (${response.status})`;
+                    try {
+                        const errorBody = await response.json();
+                        if (typeof errorBody.detail === 'string') detail = errorBody.detail;
+                        else if (Array.isArray(errorBody.detail)) detail = errorBody.detail.map(e => e.msg).join('. ');
+                    } catch (_) {}
+                    if (response.status === 401) detail = 'You are not logged in. Please log in again.';
+                    if (/handle/i.test(detail)) showFieldError(form, detail, 'channelHandle');
+                    else if (/channel name|name '/i.test(detail)) showFieldError(form, detail, 'channelName');
+                    else showFieldError(form, detail);
+                    return;
+                }
+
+                const channel = await response.json();
+                window.closeAllPopups();
+                form.reset();
+                window.showToast(`✅ Channel "${channel.name}" created!`);
+            } catch (err) {
+                console.error('[popups] create channel failed:', err);
+                showFieldError(form, 'Could not reach the server. Please try again.');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
         }
     };
 
@@ -1083,6 +1217,16 @@ function initPopups() {
             postForm.reset();
             const postImageName = document.getElementById('postImageName');
             if (postImageName) postImageName.textContent = 'Click to add an image';
+        });
+    }
+
+    // ===== Create Channel =====
+    // Enforce the handle pattern (^[a-zA-Z0-9_]+$) as the user types
+    const channelHandleInput = document.getElementById('channelHandle');
+    if (channelHandleInput) {
+        channelHandleInput.addEventListener('input', () => {
+            const cleaned = channelHandleInput.value.replace(/[^a-zA-Z0-9_]/g, '');
+            if (cleaned !== channelHandleInput.value) channelHandleInput.value = cleaned;
         });
     }
 
