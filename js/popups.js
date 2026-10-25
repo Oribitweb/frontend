@@ -425,7 +425,23 @@ function initPopups() {
         if (target) target.textContent = message;
         else window.showToast(message);
     }
-    
+
+    // Toggle the submit button's pending state (spinner + label) while an auth request runs.
+    function setAuthSubmitting(form, loading, loadingText = '') {
+        const btn = form.querySelector('button[type="submit"]');
+        if (!btn) return;
+        if (loading) {
+            if (!btn.dataset.label) btn.dataset.label = btn.textContent.trim();
+            btn.disabled = true;
+            btn.classList.add('btn--loading');
+            btn.innerHTML = `<span class="btn__spinner" aria-hidden="true"></span>${loadingText || btn.dataset.label}`;
+        } else {
+            btn.disabled = false;
+            btn.classList.remove('btn--loading');
+            btn.textContent = btn.dataset.label || btn.textContent;
+        }
+    }
+
     function closeWebSocket() {
         if (activeWebSocket) {
             activeWebSocket.close();
@@ -728,6 +744,7 @@ function initPopups() {
                 showFieldError(form, 'Please fill all fields');
                 return;
             }
+            setAuthSubmitting(form, true, 'Logging in...');
             try {
                 console.log('[popups] login submit for', username);
                 await window.loginUser({ username, password });
@@ -745,6 +762,8 @@ function initPopups() {
                     ? 'Invalid username or password'
                     : (detail && detail.length < 120 ? detail : 'Login failed');
                 showFieldError(form, msg);
+            } finally {
+                setAuthSubmitting(form, false);
             }
         },
 
@@ -766,6 +785,7 @@ function initPopups() {
                 showFieldError(form, 'Password must be at least 6 characters', 'signupPassword');
                 return;
             }
+            setAuthSubmitting(form, true, 'Creating account...');
             try {
                 await window.registerUser({ username, email, password, confirm_password: confirmPassword });
                 window.closeAllPopups();
@@ -777,6 +797,8 @@ function initPopups() {
                 if (errorMsg.includes('Username already registered')) errorMsg = 'Username already exists';
                 else if (errorMsg.includes('Email already registered')) errorMsg = 'Email already exists';
                 showFieldError(form, errorMsg || 'Registration failed');
+            } finally {
+                setAuthSubmitting(form, false);
             }
         },
 

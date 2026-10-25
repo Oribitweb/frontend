@@ -380,6 +380,22 @@
 .btn--primary:hover {
     background: #00b347;
 }
+.btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+.btn__spinner {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    animation: btn-spin 0.7s linear infinite;
+}
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
 .btn--full {
     width: 100%;
 }
