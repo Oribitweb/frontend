@@ -567,6 +567,145 @@ function initPopups() {
 
     injectNotificationStyles();
 
+    // ===== Processing Step Report (video.progress WebSocket events) =====
+    // The Celery worker publishes the full step plan with every event, so the
+    // checklist can be rebuilt from any single message — including on reconnect.
+    function injectProcessingStepsStyles() {
+        if (document.getElementById('processing-steps-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'processing-steps-styles';
+        style.textContent = `
+            #processingSteps {
+                position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+                background: #211f2c; color: #e6e6ef; border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+                padding: 14px 18px; width: 320px; max-width: calc(100vw - 40px);
+                text-align: left; font-size: 14px;
+            }
+            .processing-steps__title { font-weight: 700; margin-bottom: 10px; }
+            .processing-steps__overall { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+            .processing-steps__bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.15); overflow: hidden; }
+            .processing-steps__fill { height: 100%; width: 0%; border-radius: 4px; background: #6c5ce7; transition: width 0.3s ease; }
+            .processing-steps__pct { font-size: 0.85em; font-weight: 600; min-width: 3em; text-align: right; }
+            .processing-steps__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+            .processing-steps__list li { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #9a97ab; }
+            .processing-steps__list li .step-marker { width: 1em; text-align: center; }
+            .processing-steps__list li.done { color: #2e7d32; }
+            .processing-steps__list li.active { color: #fff; font-weight: 600; }
+            .processing-steps__list li.active .step-marker { color: #6c5ce7; display: inline-block; animation: stepSpin 1s linear infinite; }
+            .processing-steps__list li.pending .step-marker { opacity: 0.4; }
+            .processing-steps__list li.failed { color: #c0392b; font-weight: 600; }
+            .step-percent { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 0.85em; }
+            .processing-steps__error { color: #c0392b; margin-top: 6px; font-size: 0.85em; }
+            @keyframes stepSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(style);
+    }
+
+    injectProcessingStepsStyles();
+
+    function ensureProcessingStepsBox() {
+        // Page-level panel: the upload popup closes as soon as /complete
+        // returns, so processing progress must be visible outside of it.
+        let box = document.getElementById('processingSteps');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'processingSteps';
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    let processingStepsHideTimer = null;
+
+    // Called when a NEW upload starts (not on WS reconnects — those must keep state)
+    function resetProcessingSteps() {
+        if (processingStepsHideTimer) {
+            clearTimeout(processingStepsHideTimer);
+            processingStepsHideTimer = null;
+        }
+        const box = document.getElementById('processingSteps');
+        if (box) box.remove();
+    }
+
+    function renderProcessingSteps(data) {
+        const box = ensureProcessingStepsBox();
+        if (!box) return;
+
+        const steps = (Array.isArray(data.steps) && data.steps.length)
+            ? data.steps.slice()
+            : [{ key: data.stepKey, label: data.label || 'Processing…' }];
+
+        let activeIdx = (typeof data.stepIndex === 'number' && data.stepIndex > 0)
+            ? data.stepIndex - 1
+            : steps.findIndex(s => s.key === data.stepKey);
+
+        // Transient steps (e.g. "retry") aren't part of the plan — show as an extra row
+        if (activeIdx === -1 && data.stepKey) {
+            steps.push({ key: data.stepKey, label: data.label || data.stepKey });
+            activeIdx = steps.length - 1;
+        }
+        if (activeIdx < 0) activeIdx = 0;
+
+        const perStep = 100 / steps.length;
+        const stepFraction = (typeof data.stepPercent === 'number' ? data.stepPercent : 0) / 100;
+        const overall = Math.min(99, Math.round(activeIdx * perStep + stepFraction * perStep));
+
+        const rows = steps.map((s, i) => {
+            const state = i < activeIdx ? 'done' : i === activeIdx ? 'active' : 'pending';
+            const marker = state === 'done' ? '✓' : state === 'active' ? '⟳' : '•';
+            const pct = state === 'active' && typeof data.stepPercent === 'number'
+                ? `<span class="step-percent">${data.stepPercent}%</span>` : '';
+            return `<li class="${state}"><span class="step-marker">${marker}</span>` +
+                `<span class="step-label">${escapeHtml(s.label || s.key)}</span>${pct}</li>`;
+        }).join('');
+
+        box.innerHTML = `
+            <div class="processing-steps__title">Processing your video…</div>
+            <div class="processing-steps__overall">
+                <div class="processing-steps__bar"><div class="processing-steps__fill" style="width:${overall}%"></div></div>
+                <span class="processing-steps__pct">${overall}%</span>
+            </div>
+            <ul class="processing-steps__list">${rows}</ul>
+        `;
+    }
+
+    function markProcessingStepsDone() {
+        const box = document.getElementById('processingSteps');
+        if (!box) return;
+        box.querySelectorAll('.processing-steps__list li').forEach(li => {
+            li.className = 'done';
+            const marker = li.querySelector('.step-marker');
+            if (marker) marker.textContent = '✓';
+            const pct = li.querySelector('.step-percent');
+            if (pct) pct.remove();
+        });
+        const fill = box.querySelector('.processing-steps__fill');
+        const pctLabel = box.querySelector('.processing-steps__pct');
+        if (fill) fill.style.width = '100%';
+        if (pctLabel) pctLabel.textContent = '100%';
+        // The green "Video ready!" banner takes over from here — tidy up shortly
+        if (processingStepsHideTimer) clearTimeout(processingStepsHideTimer);
+        processingStepsHideTimer = setTimeout(resetProcessingSteps, 6000);
+    }
+
+    function markProcessingStepsFailed(message) {
+        const box = document.getElementById('processingSteps');
+        if (!box) return;
+        const active = box.querySelector('.processing-steps__list li.active');
+        if (active) {
+            active.className = 'failed';
+            const marker = active.querySelector('.step-marker');
+            if (marker) marker.textContent = '✕';
+        }
+        if (message) {
+            const err = document.createElement('div');
+            err.className = 'processing-steps__error';
+            err.textContent = message;
+            box.appendChild(err);
+        }
+    }
+
     // ===== WebSocket with First-Message Authentication =====
     async function connectToVideoStatus(videoId, onReady, onError) {
         closeWebSocket();
@@ -640,9 +779,15 @@ function initPopups() {
                         return;
                     }
 
+                    if (data.type === 'video.progress' && data.videoId === videoId) {
+                        renderProcessingSteps(data);
+                        return;
+                    }
+
                     if (data.type === 'video.ready' && data.videoId === videoId) {
                         console.log('Video ready!');
-                        
+                        markProcessingStepsDone();
+
                         const statusElement = document.getElementById('uploadStatus');
                         if (statusElement) {
                             statusElement.textContent = 'Video ready for playback!';
@@ -654,7 +799,8 @@ function initPopups() {
                     } 
                     else if (data.type === 'video.error') {
                         console.error('Video error:', data.error);
-                        
+                        markProcessingStepsFailed(data.error);
+
                         const statusElement = document.getElementById('uploadStatus');
                         if (statusElement) {
                             statusElement.textContent = `Processing failed: ${data.error}`;
@@ -1117,79 +1263,17 @@ function initPopups() {
 
                 const completeData = await completeResponse.json();
                 console.log('Upload complete, video ID:', completeData.video_id);
-                
-                if (progressContainer) progressContainer.style.display = 'none';
-                if (progressFill) progressFill.style.width = '0%';
-                if (progressText) progressText.textContent = '0%';
-                
+
                 window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – Processing started.`);
                 
-                if (uploadStatus) {
-                    uploadStatus.textContent = 'Processing video... This may take a few minutes.';
-                    uploadStatus.className = 'upload-status processing';
-                }
+                window.closeAllPopups();
                 
-                // Connect to WebSocket for real-time updates
-                connectToVideoStatus(
-                    completeData.public_id,
-                    async (videoId) => {
-                        console.log('Video ready:', videoId);
-                        
-                        try {
-                            const signedUrlResponse = await fetch(
-                                `${API_BASE}/videos/${videoId}/signed-url`
-                            );
-                            if (signedUrlResponse.ok) {
-                                const signedUrlData = await signedUrlResponse.json();
-                                window.lastSignedUrl = signedUrlData.signed_url;
-                            }
-                        } catch (err) {
-                            console.error('Error fetching signed URL:', err);
-                        }
-                        
-                        showTopNotification('Your video is ready!', videoId);
-                        
-                        const statusElement = document.getElementById('uploadStatus');
-                        if (statusElement) {
-                            statusElement.innerHTML = `
-                                <div class="processing-complete">
-                                    <span>✅ Video ready!</span>
-                                    <button onclick="window.location.href='video.html?id=${encodeURIComponent(videoId)}'" class="btn btn-primary btn-sm">
-                                        Watch Now
-                                    </button>
-                                </div>
-                            `;
-                            statusElement.className = 'upload-status success';
-                        }
-                        
-                        uploadForm.reset();
-                        if (descriptionDiv) descriptionDiv.innerHTML = '';
-                        if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
-                        tags = [];
-                        renderTags();
-                        const videoFileNameSpan = document.getElementById('videoFileName');
-                        if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
-                        if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
-                        
-                        uploadInProgress = false;
-                        if (submitBtn) submitBtn.disabled = false;
-                        
-                        setTimeout(() => {
-                            const statusEl = document.getElementById('uploadStatus');
-                            if (statusEl) statusEl.style.display = 'none';
-                        }, 10000);
-                    },
-                    (error) => {
-                        console.error('Video failed:', error);
-                        const statusElement = document.getElementById('uploadStatus');
-                        if (statusElement) {
-                            statusElement.textContent = `Processing failed: ${error}`;
-                            statusElement.className = 'upload-status error';
-                        }
-                        uploadInProgress = false;
-                        if (submitBtn) submitBtn.disabled = false;
-                    }
-                );
+                // Remember which video is being processed so the dashboard can
+                // resume the WebSocket connection and show the steps there.
+                sessionStorage.setItem('pendingVideoPublicId', completeData.public_id);
+                
+                // Navigate to the dashboard where the user can watch progress.
+                window.location.href = 'dashboard.html';
                 
             } catch (err) {
                 console.error('Upload error:', err);
@@ -1427,6 +1511,23 @@ function initPopups() {
     window.addEventListener('beforeunload', () => {
         closeWebSocket();
     });
+
+    // If we were redirected here right after an upload, resume the WebSocket
+    // on the dashboard so the user can watch the processing progress.
+    const pendingPublicId = sessionStorage.getItem('pendingVideoPublicId');
+    if (pendingPublicId) {
+        sessionStorage.removeItem('pendingVideoPublicId');
+        connectToVideoStatus(
+            pendingPublicId,
+            (videoId) => {
+                console.log('Video ready:', videoId);
+                showTopNotification('Your video is ready!', videoId);
+            },
+            (error) => {
+                console.error('Video processing failed:', error);
+            }
+        );
+    }
 }
 
 // Run after the DOM is parsed (getElementById calls above need the elements to exist)

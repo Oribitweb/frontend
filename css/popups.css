@@ -488,6 +488,12 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    /* The container spans a large fixed area; clicks must fall through to
+       the page underneath — only individual toasts are interactive. */
+    pointer-events: none;
+}
+.toast-container .toast {
+    pointer-events: auto;
 }
 .toast {
     background: var(--card-bg);
