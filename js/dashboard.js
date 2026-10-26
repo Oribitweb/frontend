@@ -399,7 +399,7 @@
     }
 
     function renderVideoCard(v) {
-        const thumb = v.thumbnail_url || 'assets/thumbnail.png';
+        const thumb = v.thumbnail_url || 'assets/img/thumbnail.png';
         const title = escapeHtml(v.title || 'Untitled');
         const views = v.view_count || v.views || 0;
         const date = formatDate(v.created_at || v.uploaded_at);
@@ -415,7 +415,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
                 <div class="dash-video-card__thumb">
-                    <img src="${thumb}" alt="${title}" loading="lazy" onerror="this.src='assets/thumbnail.png'">
+                    <img src="${thumb}" alt="${title}" loading="lazy" onerror="this.src='assets/img/thumbnail.png'">
                     ${v.status ? `<span class="dash-video-card__status">${escapeHtml(v.status)}</span>` : ''}
                     ${duration ? `<span class="dash-video-card__duration">${duration}</span>` : ''}
                 </div>
@@ -546,18 +546,22 @@
     });
 
     function buildVideoPayload(video, overrides = {}) {
-        return {
+        const payload = {
             title: video.title || '',
             description: video.description || '',
             visibility: video.visibility || 'public',
             scheduled_at: video.scheduled_at || null,
-            category_id: parseInt(video.category_id || video.category) || 0,
             language: video.language || 'en',
             license: video.license || 'standard',
             allow_comments: video.allow_comments !== false,
             is_made_for_kids: video.is_made_for_kids === true,
             ...overrides,
         };
+        // Omit category_id unless it's a real id — 0 violates the FK and an
+        // unparseable value would silently clear the video's category.
+        const categoryId = parseInt(video.category_id ?? video.category);
+        if (categoryId) payload.category_id = categoryId;
+        return payload;
     }
 
     // ================= Toolbar: search / filters / sort / view =================
@@ -659,12 +663,15 @@
             description: editDescription.value.trim(),
             visibility: editVisibility.value,
             scheduled_at: editScheduledAt.value ? new Date(editScheduledAt.value).toISOString() : null,
-            category_id: parseInt(editCategory.value) || 0,
             language: editLanguage.value,
             license: editLicense.value,
             allow_comments: editAllowComments.checked,
             is_made_for_kids: editMadeForKids.checked,
         };
+        // Only send category_id when a real category is selected — sending 0
+        // violates the FK constraint, and null would clear an existing one.
+        const selectedCategoryId = parseInt(editCategory.value);
+        if (selectedCategoryId) payload.category_id = selectedCategoryId;
 
         editVideoSubmit.disabled = true;
         editVideoSubmit.textContent = 'Saving…';
