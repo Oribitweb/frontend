@@ -422,8 +422,16 @@
 .dash-video-grid[data-view="list"] .dash-video-card__body {
     padding: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
 }
-.dash-video-grid[data-view="list"] .dash-video-card__title { margin-bottom: 4px; -webkit-line-clamp: 1; }
-.dash-video-grid[data-view="list"] .dash-video-card__meta { margin-bottom: 0; }
+.dash-video-grid[data-view="list"] .dash-video-card__title {
+    margin-bottom: 4px; -webkit-line-clamp: 1;
+    flex: 1; min-width: 140px;
+}
+.dash-video-grid[data-view="list"] .dash-video-card__meta {
+    margin-bottom: 0;
+    /* Fixed-width column so views/date/badge align across rows —
+       space-between alone lets the middle column slide with title width. */
+    flex: 0 0 300px;
+}
 .dash-video-grid[data-view="list"] .dash-video-card__check { top: 50%; left: 6px; transform: translateY(-50%); }
 
 /* ---- Skeleton loading ---- */
