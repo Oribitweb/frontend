@@ -399,7 +399,7 @@
     }
 
     function renderVideoCard(v) {
-        const thumb = v.thumbnail_url || 'assets/placeholder-thumb.jpg';
+        const thumb = v.thumbnail_url || 'assets/thumbnail.png';
         const title = escapeHtml(v.title || 'Untitled');
         const views = v.view_count || v.views || 0;
         const date = formatDate(v.created_at || v.uploaded_at);
