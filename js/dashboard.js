@@ -78,7 +78,7 @@
     let filters = { status: '', visibility: '' };
     let searchTerm = '';
     let sortMode = 'newest';
-    let viewMode = 'grid';
+    let viewMode = 'list';
     let selectMode = false;
     let selectedVideoIds = new Set();
 

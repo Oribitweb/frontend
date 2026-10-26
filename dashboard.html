@@ -73,8 +73,8 @@
         <select id="filterVisibility" aria-label="Filter by visibility"><option value="">All visibility</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
         <select id="sortVideos" aria-label="Sort videos"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="views">Most viewed</option><option value="title">Title A–Z</option></select>
         <div class="dash-view-toggle" role="group" aria-label="Layout">
-          <button type="button" class="dash-view-toggle__btn dash-view-toggle__btn--active" data-view="grid" aria-pressed="true" aria-label="Grid view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
-          <button type="button" class="dash-view-toggle__btn" data-view="list" aria-pressed="false" aria-label="List view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
+          <button type="button" class="dash-view-toggle__btn" data-view="grid" aria-pressed="false" aria-label="Grid view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+          <button type="button" class="dash-view-toggle__btn dash-view-toggle__btn--active" data-view="list" aria-pressed="true" aria-label="List view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
         </div>
         <button type="button" class="btn btn--ghost btn--small" id="selectModeToggle">Select</button>
       </div>
@@ -90,7 +90,7 @@
     </div>
 
     <p class="dash-result-count" id="filterResult"></p>
-    <div class="dash-video-grid" id="videoGrid" data-view="grid"></div>
+    <div class="dash-video-grid" id="videoGrid" data-view="list"></div>
 
     <div class="dash-skeleton-grid" id="videoSkeleton">
       <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
