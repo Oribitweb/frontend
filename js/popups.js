@@ -1265,54 +1265,15 @@ function initPopups() {
                 console.log('Upload complete, video ID:', completeData.video_id);
 
                 window.showToast(`✅ Upload complete! Video ID: ${completeData.video_id} – Processing started.`);
-
-                // The upload itself is done: reset the popup for the next video and
-                // close it; processing continues in the background via WebSocket.
-                if (progressContainer) progressContainer.style.display = 'none';
-                if (progressFill) progressFill.style.width = '0%';
-                if (progressText) progressText.textContent = '0%';
-                if (uploadStatus) uploadStatus.style.display = 'none';
-
-                uploadForm.reset();
-                if (descriptionDiv) descriptionDiv.innerHTML = '';
-                if (document.getElementById('descCounter')) document.getElementById('descCounter').textContent = '0 / 5000';
-                tags = [];
-                renderTags();
-                const videoFileNameSpan = document.getElementById('videoFileName');
-                if (videoFileNameSpan) videoFileNameSpan.textContent = 'Click to select a video file';
-
-                uploadInProgress = false;
-                if (submitBtn) submitBtn.disabled = false;
-
+                
                 window.closeAllPopups();
-
-                // "Video ready" later arrives via WebSocket as a top-of-page notification.
-                resetProcessingSteps();
-                connectToVideoStatus(
-                    completeData.public_id,
-                    async (videoId) => {
-                        console.log('Video ready:', videoId);
-                        
-                        try {
-                            const signedUrlResponse = await fetch(
-                                `${API_BASE}/videos/${videoId}/signed-url`
-                            );
-                            if (signedUrlResponse.ok) {
-                                const signedUrlData = await signedUrlResponse.json();
-                                window.lastSignedUrl = signedUrlData.signed_url;
-                            }
-                        } catch (err) {
-                            console.error('Error fetching signed URL:', err);
-                        }
-                        
-                        showTopNotification('Your video is ready!', videoId);
-                        if (typeof window.fetchCurrentUser === 'function') window.fetchCurrentUser();
-                    },
-                    (error) => {
-                        // connectToVideoStatus already toasts the failure; the popup is closed.
-                        console.error('Video failed:', error);
-                    }
-                );
+                
+                // Remember which video is being processed so the dashboard can
+                // resume the WebSocket connection and show the steps there.
+                sessionStorage.setItem('pendingVideoPublicId', completeData.public_id);
+                
+                // Navigate to the dashboard where the user can watch progress.
+                window.location.href = 'dashboard.html';
                 
             } catch (err) {
                 console.error('Upload error:', err);
@@ -1550,6 +1511,23 @@ function initPopups() {
     window.addEventListener('beforeunload', () => {
         closeWebSocket();
     });
+
+    // If we were redirected here right after an upload, resume the WebSocket
+    // on the dashboard so the user can watch the processing progress.
+    const pendingPublicId = sessionStorage.getItem('pendingVideoPublicId');
+    if (pendingPublicId) {
+        sessionStorage.removeItem('pendingVideoPublicId');
+        connectToVideoStatus(
+            pendingPublicId,
+            (videoId) => {
+                console.log('Video ready:', videoId);
+                showTopNotification('Your video is ready!', videoId);
+            },
+            (error) => {
+                console.error('Video processing failed:', error);
+            }
+        );
+    }
 }
 
 // Run after the DOM is parsed (getElementById calls above need the elements to exist)
