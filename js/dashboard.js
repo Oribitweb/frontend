@@ -415,7 +415,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
                 <div class="dash-video-card__thumb">
-                    <img src="${thumb}" alt="${title}" loading="lazy" onerror="this.src='assets/placeholder-thumb.jpg'">
+                    <img src="${thumb}" alt="${title}" loading="lazy" onerror="this.src='assets/thumbnail.png'">
                     ${v.status ? `<span class="dash-video-card__status">${escapeHtml(v.status)}</span>` : ''}
                     ${duration ? `<span class="dash-video-card__duration">${duration}</span>` : ''}
                 </div>
