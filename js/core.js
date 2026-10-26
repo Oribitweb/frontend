@@ -61,6 +61,16 @@ function openPopupById(id) {
     if (el) openPopup(el);
 }
 
+// Close a specific popup by id and clear the overlay/scroll-lock.
+// dashboard.js calls this via window.closePopupById after successful
+// form submissions — without it the fallback there left the overlay
+// stuck on screen.
+function closePopupById(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+    closeAllPopups();
+}
+
 // Close popup with data-close buttons
 document.addEventListener('click', e => {
     const closeBtn = e.target.closest('[data-close]');
@@ -300,6 +310,7 @@ window.setTheme = setTheme;
 window.openPopup = openPopup;
 window.closeAllPopups = closeAllPopups;
 window.openPopupById = openPopupById;
+window.closePopupById = closePopupById;
 window.currentUser = currentUser;
 window.fetchCurrentUser = fetchCurrentUser;
 window.logoutUser = logoutUser;
