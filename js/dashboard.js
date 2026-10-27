@@ -185,7 +185,8 @@
 
     function getVisibilityBadge(vis) {
         const cls = vis === 'public' ? 'dash-badge--public' :
-            vis === 'private' ? 'dash-badge--private' : 'dash-badge--unlisted';
+            vis === 'private' ? 'dash-badge--private' :
+            vis === 'scheduled' ? 'dash-badge--scheduled' : 'dash-badge--unlisted';
         return `<span class="dash-badge ${cls}">${escapeHtml(vis || '—')}</span>`;
     }
 
@@ -321,10 +322,13 @@
             if (!append) fetchCommentStats(allVideos);
 
         } catch (err) {
-            console.error('Fetch videos error:', err);
-            videoError.hidden = false;
-            if (!err.message.includes('log in')) {
-                showToast('Failed to load videos: ' + err.message, 'error');
+            const isAuthError = err.message && err.message.includes('logged in');
+            if (isAuthError) {
+                console.error('User is not authenticated:', err);
+                videoError.hidden = false;
+            } else {
+                console.error('Fetch videos error:', err);
+                videoError.hidden = false;
             }
         } finally {
             videoSkeleton.style.display = 'none';
@@ -1085,6 +1089,26 @@
     }
 
     // ================= Init =================
-    fetchVideos(1, false);
-    loadCategories();
+    // Wait for auth state to be resolved (core.js fetches user on DOMContentLoaded)
+    async function initDashboard() {
+        // Ensure currentUser is fetched
+        if (window.fetchCurrentUser) {
+            await window.fetchCurrentUser();
+        }
+
+        // Check authentication - show login if not authenticated
+        if (!window.currentUser) {
+            window.openPopupById('loginPopup');
+            return; // Stop further initialization
+        }
+
+        fetchVideos(1, false);
+        loadCategories();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    } else {
+        initDashboard();
+    }
 })();

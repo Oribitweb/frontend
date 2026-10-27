@@ -143,7 +143,7 @@ async function refreshToken() {
         credentials: 'include'
     })
     .then(res => {
-        if (!res.ok) throw new Error('Refresh failed');
+        if (!res.ok) throw new Error('Session expired. Please log in again.');
         return res.json();   // cookie is set by backend, we only need success signal
     })
     .then(data => {
@@ -152,7 +152,9 @@ async function refreshToken() {
     })
     .catch(err => {
         processQueue(err, null);
-        // Optionally force logout here
+        if (typeof window.openPopupById === 'function') {
+            window.openPopupById('loginPopup');
+        }
         throw err;
     })
     .finally(() => {
@@ -169,8 +171,10 @@ async function refreshToken() {
  * is automatically queued and retried after a successful token refresh.
  */
 window.fetch = async function(url, options = {}) {
-    // Bypass interceptor for /refresh calls (they use originalFetch anyway)
-    if (url === `${API_BASE}/refresh` || options.__bypassInterceptor) {
+    // Bypass interceptor for /refresh, /logout, and public /videos (public feed should work without auth)
+    const isPublicVideos = url.startsWith(`${API_BASE}/videos`);
+    const isLogout = url.includes(`${API_BASE}/logout`);
+    if (url === `${API_BASE}/refresh` || isPublicVideos || isLogout || options.__bypassInterceptor) {
         return originalFetch(url, options);
     }
 
@@ -234,7 +238,16 @@ async function registerUser(userData) {
 }
 
 async function logoutUser() {
-    await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
+    try {
+        const res = await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`Logout failed: ${res.status} ${errText}`);
+        }
+    } catch (err) {
+        console.error('Logout request error:', err);
+        // Continue with local cleanup even if request fails
+    }
     currentUser = null;
     window.currentUser = null;
     if (window.updateUserDropdown) window.updateUserDropdown();

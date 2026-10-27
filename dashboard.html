@@ -22,7 +22,7 @@
     <div class="header__actions">
       <div class="create-container">
         <button class="header__create-btn" id="createBtn" aria-label="Create"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-        <div class="create-dropdown" id="createDropdown"><div class="dropdown__section"><button class="dropdown__item" data-popup="channelPopup">Create Channel</button><button class="dropdown__item" data-popup="uploadPopup">Upload Video</button><button class="dropdown__item" data-popup="shortPopup">Upload Short</button><button class="dropdown__item" data-popup="postPopup">Community Post</button></div></div>
+        <div class="create-dropdown" id="createDropdown"><div class="dropdown__section"><button class="dropdown__item" data-popup="channelPopup">Create Channel</button><button class="dropdown__item" data-popup="uploadPopup">Upload Video</button></div></div>
       </div>
       <button class="header__profile-btn" id="profileBtn" aria-label="Profile"><div class="header__profile-avatar" id="profileAvatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></button>
       <div class="dropdown" id="profileDropdown"></div>
@@ -69,8 +69,8 @@
     <div class="dash-toolbar">
       <div class="dash-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="videoSearch" placeholder="Search your videos…" aria-label="Search your videos"></div>
       <div class="dash-toolbar__right">
-        <select id="filterStatus" aria-label="Filter by status"><option value="">All statuses</option><option value="published">Published</option><option value="draft">Draft</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="scheduled">Scheduled</option></select>
-        <select id="filterVisibility" aria-label="Filter by visibility"><option value="">All visibility</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
+        <select id="filterStatus" aria-label="Filter by status"><option value="">All statuses</option><option value="uploading">Uploading</option><option value="processing">Processing</option><option value="ready">Ready</option><option value="failed">Failed</option></select>
+        <select id="filterVisibility" aria-label="Filter by visibility"><option value="">All visibility</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option><option value="scheduled">Scheduled</option></select>
         <select id="sortVideos" aria-label="Sort videos"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="views">Most viewed</option><option value="title">Title A–Z</option></select>
         <div class="dash-view-toggle" role="group" aria-label="Layout">
           <button type="button" class="dash-view-toggle__btn" data-view="grid" aria-pressed="false" aria-label="Grid view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
@@ -83,7 +83,7 @@
     <div class="dash-bulkbar" id="videoBulkBar" hidden>
       <span class="dash-bulkbar__count"><strong id="videoBulkCount">0</strong> selected</span>
       <div class="dash-bulkbar__actions">
-        <select id="bulkVisibility" aria-label="Change visibility for selected videos"><option value="">Change visibility to…</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select>
+        <select id="bulkVisibility" aria-label="Change visibility for selected videos"><option value="">Change visibility to…</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option><option value="scheduled">Scheduled</option></select>
         <button type="button" class="btn btn--primary btn--small" id="bulkVisibilityApply">Apply</button>
         <button type="button" class="btn btn--ghost btn--small" id="bulkClear">Cancel</button>
       </div>

@@ -367,6 +367,7 @@
 .dash-badge--public { background: var(--db-success-bg); color: var(--accent); }
 .dash-badge--private { background: var(--db-warning-bg); color: var(--db-warning); }
 .dash-badge--unlisted { background: var(--db-info-bg); color: var(--db-info); }
+.dash-badge--scheduled { background: var(--db-secondary-bg); color: var(--text-secondary); }
 .dash-video-card__pending {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 0.7rem; font-weight: 600;
