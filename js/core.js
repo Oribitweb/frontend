@@ -171,10 +171,11 @@ async function refreshToken() {
  * is automatically queued and retried after a successful token refresh.
  */
 window.fetch = async function(url, options = {}) {
-    // Bypass interceptor for /refresh, /logout, and public /videos (public feed should work without auth)
+    // Bypass interceptor for /refresh, /logout, /users/me (auth check), and public /videos (public feed should work without auth)
     const isPublicVideos = url.startsWith(`${API_BASE}/videos`);
     const isLogout = url.includes(`${API_BASE}/logout`);
-    if (url === `${API_BASE}/refresh` || isPublicVideos || isLogout || options.__bypassInterceptor) {
+    const isAuthCheck = url === `${API_BASE}/users/me`;
+    if (url === `${API_BASE}/refresh` || isPublicVideos || isLogout || isAuthCheck || options.__bypassInterceptor) {
         return originalFetch(url, options);
     }
 
