@@ -295,7 +295,7 @@
             if (filters.status) params.append('status', filters.status);
             if (filters.visibility) params.append('visibility', filters.visibility);
 
-            const data = await apiFetch(`/me/videos/?${params.toString()}`);
+            const data = await apiFetch(`/me/videos?${params.toString()}`);
             const items = data.items || [];
             const total = data.total || 0;
             hasMore = data.has_next || false;
@@ -696,7 +696,7 @@
     async function loadCategories(force = false) {
         if (categoriesLoaded && !force) return categories;
         try {
-            const data = await apiFetch('/categories');
+            const data = await apiFetch('/categories/');
             categories = Array.isArray(data) ? data : (data.items || data.categories || []);
             categoriesLoaded = true;
         } catch (err) {
