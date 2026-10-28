@@ -1102,6 +1102,13 @@
             return; // Stop further initialization
         }
 
+        // Reset filter UI to defaults on load (avoid restored select values showing empty results)
+        filterStatus.value = '';
+        filterVisibility.value = '';
+        videoSearch.value = '';
+        filters = { status: '', visibility: '' };
+        searchTerm = '';
+
         fetchVideos(1, false);
         loadCategories();
     }

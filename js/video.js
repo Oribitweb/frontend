@@ -1150,7 +1150,11 @@
                 credentials: 'include',
                 headers: { 'Accept': 'application/json' }
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                // 401 = unauthenticated user, silently ignore (view tracking optional)
+                if (response.status === 401) return;
+                throw new Error(`HTTP ${response.status}`);
+            }
             viewSubmitted = true;
             console.log('View submitted to backend for video', VIDEO_ID);
         } catch (err) {
