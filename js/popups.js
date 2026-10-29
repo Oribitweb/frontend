@@ -1096,9 +1096,19 @@ function initPopups() {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            // Prevent multiple submissions - check and set flag immediately
             if (uploadInProgress) {
                 window.showToast('Upload already in progress...');
                 return;
+            }
+            uploadInProgress = true;
+            
+            const submitBtn = uploadForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('btn--loading');
+                if (!submitBtn.dataset.label) submitBtn.dataset.label = submitBtn.textContent.trim();
+                submitBtn.innerHTML = `<span class="btn__spinner" aria-hidden="true"></span>${submitBtn.dataset.label}`;
             }
 
             // Ensure currentUser is fetched before checking auth
@@ -1109,12 +1119,24 @@ function initPopups() {
             if (!window.currentUser) {
                 window.showToast('Please log in to upload videos.');
                 window.openPopupById('loginPopup');
+                uploadInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 return;
             }
 
             const title = document.getElementById('videoTitle')?.value.trim();
             if (!title) {
                 window.showToast('Please enter a video title.');
+                uploadInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 return;
             }
             const descriptionDiv = document.getElementById('videoDescription');
@@ -1150,14 +1172,32 @@ function initPopups() {
             const videoFile = videoFileInput?.files[0];
             if (!videoFile) {
                 window.showToast('Please select a video file.');
+                uploadInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 return;
             }
             if (videoFile.size > 500 * 1024 * 1024) {
                 window.showToast('File too large. Max 500MB.');
+                uploadInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 return;
             }
             if (!videoFile.type.startsWith('video/')) {
                 window.showToast('File must be a video.');
+                uploadInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 return;
             }
 
@@ -1177,10 +1217,6 @@ function initPopups() {
                 uploadStatus.textContent = 'Preparing upload...';
                 uploadStatus.className = 'upload-status uploading';
             }
-
-            const submitBtn = uploadForm.querySelector('button[type="submit"]');
-            if (submitBtn) submitBtn.disabled = true;
-            uploadInProgress = true;
 
             let upload_url = null;
             let object_key = null;
@@ -1288,15 +1324,19 @@ function initPopups() {
             } catch (err) {
                 console.error('Upload error:', err);
                 window.showToast(`Upload failed: ${err.message}`);
-                
+
                 const statusElement = document.getElementById('uploadStatus');
                 if (statusElement) {
                     statusElement.textContent = `Upload failed: ${err.message}`;
                     statusElement.className = 'upload-status error';
                 }
-                
+
                 uploadInProgress = false;
-                if (submitBtn) submitBtn.disabled = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn--loading');
+                    submitBtn.textContent = submitBtn.dataset.label || 'Upload Video';
+                }
                 if (progressContainer) progressContainer.style.display = 'none';
                 if (progressFill) progressFill.style.width = '0%';
                 if (progressText) progressText.textContent = '0%';
