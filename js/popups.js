@@ -963,6 +963,11 @@ function initPopups() {
         channelForm: async (form) => {
             clearFormErrors(form);
 
+            // Ensure currentUser is fetched before checking auth
+            if (window.fetchCurrentUser) {
+                await window.fetchCurrentUser();
+            }
+
             if (!window.currentUser) {
                 window.showToast('Please log in to create a channel.');
                 window.openPopupById('loginPopup');
@@ -1090,10 +1095,15 @@ function initPopups() {
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             if (uploadInProgress) {
                 window.showToast('Upload already in progress...');
                 return;
+            }
+
+            // Ensure currentUser is fetched before checking auth
+            if (window.fetchCurrentUser) {
+                await window.fetchCurrentUser();
             }
 
             if (!window.currentUser) {
