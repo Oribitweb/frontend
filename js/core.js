@@ -172,7 +172,8 @@ async function refreshToken() {
  */
 window.fetch = async function(url, options = {}) {
     // Bypass interceptor for /refresh, /logout, /users/me (auth check), and public /videos (public feed should work without auth)
-    const isPublicVideos = url.startsWith(`${API_BASE}/videos`);
+    // Only the base /videos endpoint (with optional query string) is public; /videos/upload-url, /videos/complete, etc. need auth
+    const isPublicVideos = url === `${API_BASE}/videos` || url.startsWith(`${API_BASE}/videos?`);
     const isLogout = url.includes(`${API_BASE}/logout`);
     const isAuthCheck = url === `${API_BASE}/users/me`;
     if (url === `${API_BASE}/refresh` || isPublicVideos || isLogout || isAuthCheck || options.__bypassInterceptor) {
