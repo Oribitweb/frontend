@@ -44,7 +44,6 @@
     const volOffIcon = volumeBtn?.querySelector('.vol-off');
     const mutedIndicator = document.getElementById('mutedIndicator');
     const pipBtn = document.getElementById('pipBtn');
-    const theaterBtn = document.getElementById('theaterBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const playerWrapper = document.getElementById('playerWrapper');
     const settingsBtn = document.getElementById('settingsBtn');
@@ -411,6 +410,8 @@
 
     // --- Load HLS stream ---
     async function loadHLSStream() {
+        pendingQualityIdx = null;
+        if (qualityCloseTimer) clearTimeout(qualityCloseTimer);
         try {
             const signedUrlEndpoint = `${API_BASE}/videos/${VIDEO_ID}/signed-url`;
             const res = await fetch(signedUrlEndpoint, {
@@ -436,7 +437,10 @@
                     // Removed video.play() call
                 });
 
-                hlsInstance.on(Hls.Events.LEVEL_SWITCHED, () => syncQualityUI());
+                hlsInstance.on(Hls.Events.LEVEL_SWITCHED, () => {
+                    pendingQualityIdx = null;
+                    syncQualityUI();
+                });
 
                 hlsInstance.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
@@ -453,6 +457,11 @@
                                 setHeroState('hidden');
                                 window.showToast('Video playback error');
                         }
+                    }
+                    // If a quality switch was pending and we got a fatal error, revert UI to actual state
+                    if (pendingQualityIdx !== null) {
+                        pendingQualityIdx = null;
+                        syncQualityUI();
                     }
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -472,6 +481,9 @@
         }
     }
     // --- Quality buttons (dynamic from HLS manifest) ---
+    let pendingQualityIdx = null;
+    let qualityCloseTimer = null;
+
     function setupQualityButtons() {
         if (!qualityButtons || !hlsInstance) return;
         qualityButtons.innerHTML = '';
@@ -480,9 +492,11 @@
         autoBtn.dataset.level = '-1';
         autoBtn.textContent = 'Auto';
         autoBtn.onclick = () => {
-            if (hlsInstance) hlsInstance.nextLevel = -1;
-            syncQualityUI();
-            settingsMenu?.classList.remove('active');
+            if (!hlsInstance) return;
+            pendingQualityIdx = -1;
+            syncQualityUI(-1);
+            hlsInstance.nextLevel = -1;
+            closeSettingsMenuSoon();
         };
         qualityButtons.appendChild(autoBtn);
 
@@ -505,26 +519,30 @@
             if (!label) label = 'Quality ' + (idx + 1);
             btn.textContent = label;
             btn.onclick = () => {
-                if (hlsInstance) hlsInstance.nextLevel = idx;
-                syncQualityUI();
-                settingsMenu?.classList.remove('active');
+                if (!hlsInstance) return;
+                pendingQualityIdx = idx;
+                syncQualityUI(idx);
+                hlsInstance.nextLevel = idx;
+                closeSettingsMenuSoon();
             };
             qualityButtons.appendChild(btn);
         });
         syncQualityUI();
     }
 
-    function syncQualityUI() {
+    function closeSettingsMenuSoon() {
+        if (qualityCloseTimer) clearTimeout(qualityCloseTimer);
+        qualityCloseTimer = setTimeout(() => {
+            settingsMenu?.classList.remove('active');
+        }, 350);
+    }
+
+    function syncQualityUI(forcedIdx = null) {
         if (!qualityButtons || !hlsInstance) return;
         qualityButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        if (hlsInstance.autoLevelEnabled) {
-            const autoBtn = qualityButtons.querySelector('button[data-level="-1"]');
-            if (autoBtn) autoBtn.classList.add('active');
-        } else {
-            const current = hlsInstance.currentLevel;
-            const match = qualityButtons.querySelector(`button[data-level="${current}"]`);
-            if (match) match.classList.add('active');
-        }
+        const showIdx = forcedIdx !== null ? forcedIdx : (hlsInstance.autoLevelEnabled ? -1 : hlsInstance.currentLevel);
+        const match = qualityButtons.querySelector(`button[data-level="${showIdx}"]`);
+        if (match) match.classList.add('active');
     }
 
     // --- WebSocket for processing updates ---
@@ -869,7 +887,31 @@
             else if (document.pictureInPictureEnabled) await video.requestPictureInPicture();
         } catch(e) {}
     });
-    if (theaterBtn && playerWrapper) theaterBtn.addEventListener('click', () => playerWrapper.classList.toggle('theater'));
+    // --- Settings Menu Toggle & Click-Outside ---
+    if (settingsBtn && settingsMenu) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle('active');
+        });
+        document.addEventListener('click', (e) => {
+            if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+                settingsMenu.classList.remove('active');
+            }
+        });
+    }
+
+    // --- Playback Speed Buttons ---
+    const speedButtons = settingsMenu?.querySelectorAll('.settings-speed-buttons button[data-speed]');
+    if (speedButtons && video) {
+        speedButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = parseFloat(btn.dataset.speed);
+                video.playbackRate = speed;
+                speedButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    }
     if (fullscreenBtn && playerWrapper) fullscreenBtn.addEventListener('click', () => {
         if (document.fullscreenElement) document.exitFullscreen();
         else playerWrapper.requestFullscreen().catch(()=>{});
