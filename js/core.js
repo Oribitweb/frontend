@@ -171,12 +171,16 @@ async function refreshToken() {
  * is automatically queued and retried after a successful token refresh.
  */
 window.fetch = async function(url, options = {}) {
-    // Bypass interceptor for /refresh, /logout, /users/me (auth check), and public /videos (public feed should work without auth)
-    // Only the base /videos endpoint (with optional query string) is public; /videos/upload-url, /videos/complete, etc. need auth
-    const isPublicVideos = url === `${API_BASE}/videos` || url.startsWith(`${API_BASE}/videos?`);
-    const isLogout = url.includes(`${API_BASE}/logout`);
-    const isAuthCheck = url === `${API_BASE}/users/me`;
-    if (url === `${API_BASE}/refresh` || isPublicVideos || isLogout || isAuthCheck || options.__bypassInterceptor) {
+    // Bypass interceptor for:
+    // - Auth endpoints (/refresh, /logout, /users/me)
+    // - Public video feed (/videos)
+    // - ANY external (non-API_BASE) URL — e.g., S3 presigned URLs, CDN assets
+    //   These must NOT send credentials (breaks CORS on cross-origin)
+    const isApiBase = url.startsWith(API_BASE);
+    const isPublicVideos = isApiBase && (url === `${API_BASE}/videos` || url.startsWith(`${API_BASE}/videos?`));
+    const isLogout = isApiBase && url.includes(`${API_BASE}/logout`);
+    const isAuthCheck = isApiBase && url === `${API_BASE}/users/me`;
+    if (!isApiBase || url === `${API_BASE}/refresh` || isPublicVideos || isLogout || isAuthCheck || options.__bypassInterceptor) {
         return originalFetch(url, options);
     }
 
