@@ -41,6 +41,7 @@ const SHARED_POPUPS = {
         </button>
 
         <p class="popup__switch">Don't have an account? <button class="btn--link" data-action="switchToSignup">Sign Up</button></p>
+        <p class="popup__switch" style="margin-top: 8px;"><a href="login.html" style="color: var(--primary, #6366f1); text-decoration: none; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">⚡ Open Architecture Login &rarr;</a></p>
     </div>
 </div>`,
 

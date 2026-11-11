@@ -23,6 +23,12 @@
                         </svg>
                         Log In
                     </button>
+                    <a href="login.html" class="dropdown__item" style="color: var(--primary, #6366f1); text-decoration: none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        Architecture Login
+                    </a>
                     <button class="dropdown__item" id="dropdownSignupBtn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>

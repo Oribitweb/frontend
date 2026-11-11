@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Production-ready login page for Orbit — scalable video streaming and low-latency edge delivery platform.">
+  <title>Sign In — ORBIT Video Streaming</title>
+
+  <!-- Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Clean SaaS Stylesheet -->
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+  <!-- Application Container -->
+  <div class="app-container">
+
+    <!-- Top Navigation -->
+    <header class="brand-nav">
+      <a href="index.html" class="brand-nav__logo" aria-label="Orbit Home">
+        <div class="logo-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <span>ORBIT</span>
+      </a>
+
+      <div class="brand-nav__actions">
+        <div class="system-status-indicator" title="Global Edge Delivery Status">
+          <span class="status-dot"></span>
+          <span>EDGE: 99.99% UP</span>
+        </div>
+        <a href="index.html" class="return-feed-link">
+          <span>Explore Feed</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Center Stage -->
+    <main class="main-stage">
+      <div class="card-wrapper">
+        <section class="login-card" aria-labelledby="loginTitle">
+
+          <!-- ============================================================
+               VIEW 1: SIGN IN FORM
+               ============================================================ -->
+          <div id="formView">
+            <div class="card-header">
+              <span class="card-badge">Authentication</span>
+              <h1 class="card-title" id="loginTitle">Sign in to Orbit</h1>
+              <p class="card-subtitle">Scalable video streaming and distributed edge delivery platform.</p>
+            </div>
+
+            <!-- Recruiter Demo Account Pill -->
+            <div class="demo-banner">
+              <div class="demo-banner__left">
+                <span class="demo-title">Recruiter Demo Account</span>
+                <span class="demo-account">recruiter@orbit.stream</span>
+              </div>
+              <button type="button" class="btn-demo-fill" id="btnDemo" aria-label="Auto-fill demo credentials">Fill Demo</button>
+            </div>
+
+            <!-- Error Alert -->
+            <div class="error-alert" id="errorAlert" role="alert" aria-live="assertive">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span id="errorText">Invalid username or password.</span>
+            </div>
+
+            <!-- Form -->
+            <form id="loginForm" novalidate autocomplete="on">
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="usernameInput" class="form-label">Email or Username</label>
+                </div>
+                <div class="input-box">
+                  <input
+                    type="text"
+                    id="usernameInput"
+                    name="username"
+                    class="input-field"
+                    placeholder="name@company.com"
+                    required
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                  >
+                </div>
+              </div>
+
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="passwordInput" class="form-label">Password</label>
+                </div>
+                <div class="input-box">
+                  <input
+                    type="password"
+                    id="passwordInput"
+                    name="password"
+                    class="input-field"
+                    placeholder="••••••••••••"
+                    required
+                    autocomplete="current-password"
+                  >
+                  <button
+                    type="button"
+                    class="password-toggle"
+                    id="passwordToggleBtn"
+                    aria-label="Show password"
+                    aria-pressed="false"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+                <div class="caps-warning" id="capsWarning">Caps Lock is active</div>
+              </div>
+
+              <div class="form-options">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="rememberMe" class="checkbox-native" checked>
+                  <span>Remember session</span>
+                </label>
+                <a href="#" class="forgot-link" onclick="alert('Password reset link dispatched.'); return false;">Forgot password?</a>
+              </div>
+
+              <button type="submit" class="btn-submit" id="btnSubmit">
+                <span>Sign In</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </button>
+            </form>
+
+            <div class="card-bottom">
+              <span>Don't have an account? </span>
+              <a href="index.html">Browse Public Feed</a>
+            </div>
+          </div>
+
+          <!-- ============================================================
+               VIEW 2: SUBTLE & INTEGRATED ARCHITECTURE TRACE
+               Observability / Microservices Trace View
+               ============================================================ -->
+          <div class="arch-panel" id="archPanel" role="region" aria-label="Backend microservices trace">
+            <div class="arch-panel-header">
+              <div class="arch-status-badge">
+                <span class="arch-pulse-dot"></span>
+                <span>Authentication Trace</span>
+              </div>
+              <h2 class="arch-title">Backend Architecture Flow</h2>
+              <p class="arch-subtitle">Tracing request propagation across distributed edge services.</p>
+            </div>
+
+            <!-- Trace Steps List -->
+            <div class="trace-steps-list">
+              <!-- Step 1 -->
+              <div class="trace-step-item" id="step-client">
+                <div class="step-node">
+                  <div class="step-spinner"></div>
+                  <div class="step-icon-static">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="step-header-row">
+                    <span class="step-title">1. Client Request Handshake</span>
+                  </div>
+                  <div class="step-desc">Payload serialization · TLS 1.3 · HTTP/3 QUIC</div>
+                </div>
+              </div>
+
+              <!-- Step 2 -->
+              <div class="trace-step-item" id="step-gateway">
+                <div class="step-node">
+                  <div class="step-spinner"></div>
+                  <div class="step-icon-static">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="step-header-row">
+                    <span class="step-title">2. Edge API Gateway Routing</span>
+                  </div>
+                  <div class="step-desc">Envoy reverse proxy · Token Bucket rate limit (&lt;1ms)</div>
+                </div>
+              </div>
+
+              <!-- Step 3 -->
+              <div class="trace-step-item" id="step-auth">
+                <div class="step-node">
+                  <div class="step-spinner"></div>
+                  <div class="step-icon-static">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="step-header-row">
+                    <span class="step-title">3. Auth Service & Cache Verification</span>
+                  </div>
+                  <div class="step-desc">FastAPI microservice · Redis cache lookup · Argon2id</div>
+                </div>
+              </div>
+
+              <!-- Step 4 -->
+              <div class="trace-step-item" id="step-jwt">
+                <div class="step-node">
+                  <div class="step-spinner"></div>
+                  <div class="step-icon-static">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="step-header-row">
+                    <span class="step-title">4. Distributed JWT Token Issuance</span>
+                  </div>
+                  <div class="step-desc">RS256 asymmetric signature · Claims & HttpOnly cookies</div>
+                </div>
+              </div>
+
+              <!-- Step 5 -->
+              <div class="trace-step-item" id="step-cdn">
+                <div class="step-node">
+                  <div class="step-spinner"></div>
+                  <div class="step-icon-static">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="step-header-row">
+                    <span class="step-title">5. Edge CDN Stream Session Lease</span>
+                  </div>
+                  <div class="step-desc">HLS / LL-CMAF manifest ticket authorized for 4K delivery</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prominent API Response Time & Metrics Card -->
+            <div class="api-metrics-card">
+              <div class="metric-item">
+                <span class="metric-label">API Response Time</span>
+                <span class="metric-value metric-value--latency" id="metricLatency">0 ms</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Status Code</span>
+                <span class="metric-value metric-value--status" id="metricStatus">Processing</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Protocol</span>
+                <span class="metric-value" id="metricProtocol">HTTP/3</span>
+              </div>
+            </div>
+
+            <div class="arch-panel-actions" id="archPanelActions">
+              <button type="button" class="btn-cancel-trace" id="btnCancelTrace">Cancel</button>
+              <button type="button" class="btn-skip-trace" id="btnSkipTrace">Fast-Forward &rarr;</button>
+            </div>
+
+            <!-- Displayed upon final step completion: message and explicit continue button -->
+            <div class="arch-completion-bar" id="archCompletionBar" style="display: none;">
+              <div class="completion-notice">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Authentication flow completed</span>
+              </div>
+              <button type="button" class="btn-continue" id="btnContinue">
+                <span>Continue</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- ============================================================
+               VIEW 3: SUCCESS STATE
+               ============================================================ -->
+          <div class="success-panel" id="successPanel">
+            <div class="success-check-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h2 class="success-heading">Authenticated Successfully</h2>
+            <p class="success-info">Your session has been validated and authorized for 4K edge streaming.</p>
+
+            <div class="success-token-box">
+              <div class="token-label">JWT Token Signature (RS256)</div>
+              <div class="token-value" id="tokenPreviewHash">Loading...</div>
+            </div>
+
+            <a href="index.html" class="btn-continue-dashboard" id="btnContinueDashboard">
+              <span>Enter Orbit Streaming Hub</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </a>
+          </div>
+
+        </section>
+      </div>
+    </main>
+
+    <!-- Clean SaaS Footer -->
+    <footer class="site-footer">
+      <div>
+        <span>&copy; 2026 Orbit Media Cloud. Built for scalable video streaming.</span>
+      </div>
+      <nav class="footer-nav">
+        <a href="#">Security</a>
+        <a href="#">Edge Health</a>
+        <a href="#">API Docs</a>
+        <a href="#">Status</a>
+      </nav>
+    </footer>
+
+  </div>
+
+  <!-- API Config -->
+  <script src="js/config.js"></script>
+
+  <!-- Controller Script -->
+  <script src="js/login.js"></script>
+</body>
+</html>
