@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Orbit Media Cloud — High-throughput video ingestion, multi-part S3 upload, and Celery transcoding pipeline.">
+  <title>Ingest Video — ORBIT Streaming Architecture</title>
+
+  <!-- Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Upload Page Stylesheet -->
+  <link rel="stylesheet" href="css/upload.css">
+</head>
+<body>
+
+  <!-- Subtle Background Grid -->
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <div class="upload-shell">
+
+    <!-- Minimalist Top Navigation -->
+    <header class="top-nav">
+      <a href="index.html" class="brand-link" aria-label="Orbit Home">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <span>ORBIT</span>
+      </a>
+
+      <div class="nav-telemetry">
+        <div class="pipeline-pill" title="S3 Object Storage & Celery Worker Pool Status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>S3_INGRESS // WORKERS: ONLINE</span>
+        </div>
+        <a href="dashboard.html" class="nav-back-link">
+          <span>System Dashboard</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Center Stage -->
+    <main class="upload-stage">
+      <div class="upload-container">
+        <section class="upload-card" aria-labelledby="uploadHeading">
+
+          <!-- ============================================================
+               VIEW 1: VIDEO INGESTION & CHUNKING VALIDATOR FORM
+               ============================================================ -->
+          <div id="uploadFormView">
+            <div class="upload-header">
+              <div>
+                <div class="arch-tag">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="16 16 12 12 8 16"></polyline>
+                    <line x1="12" y1="12" x2="12" y2="21"></line>
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                  </svg>
+                  <span>MEDIA INGESTION PIPELINE · S3 + CELERY</span>
+                </div>
+                <h1 class="upload-title" id="uploadHeading">Ingest Video Stream</h1>
+                <p class="upload-subtitle">Direct-to-S3 object storage with automatic chunk threshold detection and asynchronous worker queue dispatch.</p>
+              </div>
+            </div>
+
+            <!-- Recruiter / Architect Quick Payload Simulator -->
+            <div class="simulator-bar" aria-label="Payload size simulator for architecture review">
+              <span class="simulator-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>Test Payload Validator:</span>
+              </span>
+              <div class="simulator-actions">
+                <button type="button" class="btn-sim" id="btnSimStandard" title="Simulate a 28.4 MB video file (< 75MB)">
+                  Simulate 28.4 MB (&lt;75MB)
+                </button>
+                <button type="button" class="btn-sim btn-sim--large" id="btnSimLarge" title="Simulate a 148.6 MB 4K video file (> 75MB)">
+                  Simulate 148.6 MB (&gt;75MB)
+                </button>
+              </div>
+            </div>
+
+            <!-- Error Banner -->
+            <div class="upload-error" id="uploadError" role="alert" aria-live="assertive">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span id="uploadErrorText">Please select a valid video file and enter a stream title.</span>
+            </div>
+
+            <form id="ingestForm" novalidate>
+
+              <!-- Glassmorphism Drag-and-Drop Zone -->
+              <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drag and drop video file or click to browse">
+                <input type="file" id="videoFileInput" class="dropzone-input" accept="video/*">
+
+                <!-- Empty State -->
+                <div class="dropzone-empty">
+                  <div class="dropzone-icon-ring">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <p class="dropzone-prompt">Drag &amp; drop raw video stream or <span>browse local disk</span></p>
+                  <p class="dropzone-specs">MP4 · WebM · MOV · MKV &nbsp;|&nbsp; Auto-chunking threshold: 75 MB &nbsp;|&nbsp; Max: 500 MB</p>
+                </div>
+
+                <!-- Selected File State -->
+                <div class="dropzone-file-info" id="dropzoneFileInfo">
+                  <div class="file-meta-left">
+                    <div class="file-type-badge" id="fileExtBadge">MP4</div>
+                    <div class="file-details">
+                      <div class="file-name" id="fileNameDisplay">stream_master_4k.mp4</div>
+                      <div class="file-stats">
+                        <span id="fileSizeDisplay">148.60 MB</span>
+                        <span>•</span>
+                        <span id="fileMimeDisplay">video/mp4</span>
+                        <span>•</span>
+                        <span class="file-stat-Mode" id="fileModeDisplay">S3_MULTIPART_CHUNKED</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-remove-file" id="btnRemoveFile" aria-label="Remove selected file">
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <!-- CORE FEATURE 1: > 75MB Architectural Chunking Badge / Notice -->
+              <div class="chunking-notice" id="chunkingNotice" role="status" aria-live="polite">
+                <div class="chunking-notice__icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                </div>
+                <div class="chunking-notice__body">
+                  <div class="chunking-notice__title">
+                    Large File Detected: Initializing Multi-part Chunked S3 Upload &amp; Worker Queue.
+                  </div>
+                  <div class="chunking-notice__telemetry">
+                    <span id="chunkPartSize">Part Size: 8.0 MB</span>
+                    <span>•</span>
+                    <span id="chunkCountDisplay">Calculated Parts: 19 chunks</span>
+                    <span>•</span>
+                    <span>Concurrency: 4x Parallel Streams</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Subtle Single-Stream Indicator (when file <= 75MB) -->
+              <div class="standard-stream-notice" id="standardNotice" role="status" aria-live="polite">
+                <span>✓ Standard Payload (&le; 75 MB): Direct Single-Stream Presigned PUT Ready</span>
+                <span id="standardSizeTag">28.40 MB</span>
+              </div>
+
+              <!-- Developer-Focused Minimalist Metadata -->
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="videoTitle" class="form-label">
+                    <span>Stream Title</span>
+                    <span class="label-hint">REQUIRED</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="videoTitle"
+                    class="form-input"
+                    placeholder="e.g. Distributed Consensus Benchmark — 4K60"
+                    required
+                    autocomplete="off"
+                  >
+                </div>
+
+                <div class="form-group">
+                  <label for="videoVisibility" class="form-label">
+                    <span>Access Policy</span>
+                  </label>
+                  <select id="videoVisibility" class="form-select">
+                    <option value="public">Public Stream</option>
+                    <option value="unlisted">Unlisted Link</option>
+                    <option value="private">Private Bucket</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="videoDescription" class="form-label">
+                  <span>Stream Notes / Manifest Description</span>
+                  <span class="label-hint">OPTIONAL</span>
+                </label>
+                <textarea
+                  id="videoDescription"
+                  class="form-textarea"
+                  placeholder="Optional technical notes, encoding parameters, or stream description..."
+                ></textarea>
+              </div>
+
+              <!-- Final Submit Button -->
+              <button type="submit" class="btn-upload-submit" id="btnUploadSubmit">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 16 12 12 8 16"></polyline>
+                  <line x1="12" y1="12" x2="12" y2="21"></line>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                </svg>
+                <span>Upload &amp; Process</span>
+              </button>
+
+            </form>
+          </div>
+
+          <!-- ============================================================
+               VIEW 2: PRE-REDIRECT PIPELINE VISUALIZATION
+               Client -> API Gateway -> Redis Broker -> Celery Task Queue
+               ============================================================ -->
+          <div class="pipeline-overlay" id="pipelineOverlay" role="region" aria-live="polite" aria-label="Ingestion pipeline dispatch visualization">
+
+            <div class="pipeline-header">
+              <div>
+                <div class="pipeline-badge">
+                  <span class="pulse-dot" aria-hidden="true"></span>
+                  <span>PIPELINE DISPATCH IN PROGRESS</span>
+                </div>
+                <h2 class="pipeline-title">Dispatching to Worker Queue</h2>
+                <p class="pipeline-subtitle" id="pipelineModeSubtitle">Streaming chunks to object storage and registering Celery ABR transcode job.</p>
+              </div>
+              <div class="pipeline-timer" id="pipelineTimer">0.0s</div>
+            </div>
+
+            <!-- 4-Node Architecture Flow Graph -->
+            <div class="pipeline-graph">
+              <div class="pipeline-bus-track" aria-hidden="true">
+                <div class="pipeline-bus-fill" id="pipelineBusFill"></div>
+              </div>
+
+              <!-- Node 1: Client Chunks -->
+              <div class="p-node" id="node-client">
+                <div class="p-node__orb">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                  </svg>
+                </div>
+                <div class="p-node__label">1. Client Dispatch</div>
+                <div class="p-node__tech" id="nodeClientTech">S3 Chunks</div>
+              </div>
+
+              <!-- Node 2: API Gateway -->
+              <div class="p-node" id="node-gateway">
+                <div class="p-node__orb">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                </div>
+                <div class="p-node__label">2. API Gateway</div>
+                <div class="p-node__tech">POST /complete</div>
+              </div>
+
+              <!-- Node 3: Redis Broker -->
+              <div class="p-node" id="node-redis">
+                <div class="p-node__orb">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                  </svg>
+                </div>
+                <div class="p-node__label">3. Redis Broker</div>
+                <div class="p-node__tech">LPUSH Task</div>
+              </div>
+
+              <!-- Node 4: Celery Task Queue -->
+              <div class="p-node" id="node-celery">
+                <div class="p-node__orb">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                </div>
+                <div class="p-node__label">4. Celery Queue</div>
+                <div class="p-node__tech">202 Accepted</div>
+              </div>
+            </div>
+
+            <!-- Live Stream Progress & Micro-Telemetry -->
+            <div class="stream-telemetry-box">
+              <div class="telemetry-top-row">
+                <span class="telemetry-stage-name" id="telemetryStageName">Initializing S3 presigned handoff...</span>
+                <span class="telemetry-percent" id="telemetryPercent">0%</span>
+              </div>
+              <div class="stream-progress-track">
+                <div class="stream-progress-bar" id="streamProgressBar"></div>
+              </div>
+              <div class="telemetry-log" id="telemetryLog"></div>
+            </div>
+
+          </div>
+
+        </section>
+      </div>
+    </main>
+
+    <!-- Minimalist Footer -->
+    <footer class="upload-footer">
+      <div>&copy; 2026 Orbit Media Cloud — Scalable Video Ingestion Engine</div>
+      <div class="footer-specs">
+        <span>STORAGE: S3 / MinIO</span>
+        <span>BROKER: Redis 7</span>
+        <span>WORKERS: Celery + FFmpeg ABR</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Central API Configuration -->
+  <script src="js/config.js"></script>
+
+  <!-- Upload & Architecture Pipeline Controller -->
+  <script src="js/upload.js"></script>
+</body>
+</html>

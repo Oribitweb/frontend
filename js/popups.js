@@ -188,7 +188,7 @@ const SHARED_POPUPS = {
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
         <h2 class="popup__title" id="uploadTitle">Upload Video</h2>
-        <p class="popup__subtitle">Share your content with the universe</p>
+        <p class="popup__subtitle">Share your content with the universe · <a href="upload.html" style="color: #00f2fe; text-decoration: none; font-weight: 500;">⚡ Open Architecture Ingest Page &rarr;</a></p>
 
         <form class="popup__form upload-form" id="uploadForm" novalidate>
             <fieldset class="form-section">

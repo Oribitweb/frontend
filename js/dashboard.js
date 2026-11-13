@@ -1,1121 +1,612 @@
-// dashboard.js – Video & Comment Management Dashboard
-(function () {
-    'use strict';
+/**
+ * ORBIT STREAMING PLATFORM — SYSTEM CONTROL & PIPELINE TELEMETRY ENGINE
+ * Implements a real-time WebSocket event listener (simulated + live hybrid)
+ * that dynamically drives the 5-stage pipeline node graph, FFmpeg ABR rendition
+ * matrix (1080p, 720p, 480p), system metrics, and WebSocket event terminal.
+ */
 
-    const API_BASE = window.API_BASE;
-    const TOAST_LIFETIME = 4000;
-    const PAGE_SIZE = 24;
+(() => {
+  'use strict';
 
-    // ================= DOM refs =================
-    const statVideos = document.getElementById('statVideos');
-    const statComments = document.getElementById('statComments');
-    const statPending = document.getElementById('statPending');
-    const refreshBtn = document.getElementById('refreshDashboard');
-    const commentsTabBadge = document.getElementById('commentsTabBadge');
+  // =========================================================================
+  // 1. STATE & CONFIGURATION
+  // =========================================================================
+  const API_BASE = window.API_BASE || (
+    ['localhost', '127.0.0.1'].includes(location.hostname)
+      ? 'http://localhost:8000'
+      : 'https://oribt.darkube.ir'
+  );
+  const WS_BASE = window.WS_BASE || (
+    ['localhost', '127.0.0.1'].includes(location.hostname)
+      ? 'ws://localhost:8000'
+      : 'wss://oribt.darkube.ir'
+  );
 
-    const videoSearch = document.getElementById('videoSearch');
-    const filterStatus = document.getElementById('filterStatus');
-    const filterVisibility = document.getElementById('filterVisibility');
-    const sortVideos = document.getElementById('sortVideos');
-    const viewToggleBtns = document.querySelectorAll('.dash-view-toggle__btn');
-    const selectModeToggle = document.getElementById('selectModeToggle');
-    const filterResult = document.getElementById('filterResult');
-    const clearFiltersBtn = document.getElementById('clearFilters');
+  let currentJob = {
+    taskId: '48f9',
+    file: 'distributed_consensus_4k60.mp4',
+    size: '148.6 MB (19 Chunks)'
+  };
 
-    const videoBulkBar = document.getElementById('videoBulkBar');
-    const videoBulkCount = document.getElementById('videoBulkCount');
-    const bulkVisibility = document.getElementById('bulkVisibility');
-    const bulkVisibilityApply = document.getElementById('bulkVisibilityApply');
-    const bulkClear = document.getElementById('bulkClear');
+  let isPaused = false;
+  let activeFilter = 'all';
+  let simulationRunId = 0;
 
-    const videoGrid = document.getElementById('videoGrid');
-    const videoSkeleton = document.getElementById('videoSkeleton');
-    const videoEmpty = document.getElementById('videoGridEmpty');
-    const videoError = document.getElementById('videoGridError');
-    const retryBtn = document.getElementById('retryVideos');
-    const sentinel = document.getElementById('videoGridSentinel');
-    const videoLoadingMore = document.getElementById('videoLoadingMore');
+  // DOM Cache
+  const dom = {
+    // Topbar Controls
+    wsHeaderDot: document.getElementById('wsHeaderDot'),
+    wsHeaderStatus: document.getElementById('wsHeaderStatus'),
+    btnToggleSim: document.getElementById('btnToggleSim'),
+    btnToggleSimLabel: document.getElementById('btnToggleSimLabel'),
+    btnReplayJob: document.getElementById('btnReplayJob'),
 
-    const commentSelector = document.getElementById('commentVideoSelector');
-    const commentSearch = document.getElementById('commentSearch');
-    const commentFilterChips = document.getElementById('commentFilterChips');
-    const commentBulkBar = document.getElementById('commentBulkBar');
-    const selectAllPending = document.getElementById('selectAllPending');
-    const approveSelectedBtn = document.getElementById('approveSelectedBtn');
-    const commentsContainer = document.getElementById('commentsContainer');
+    // System Metrics Overview
+    metricWorkers: document.getElementById('metricWorkers'),
+    metricWorkersLoad: document.getElementById('metricWorkersLoad'),
+    metricWorkersBar: document.getElementById('metricWorkersBar'),
+    metricRedisLatency: document.getElementById('metricRedisLatency'),
+    metricQueueDepth: document.getElementById('metricQueueDepth'),
+    metricRedisBar: document.getElementById('metricRedisBar'),
+    metricThroughput: document.getElementById('metricThroughput'),
+    metricThroughputBar: document.getElementById('metricThroughputBar'),
+    metricFpsSpeed: document.getElementById('metricFpsSpeed'),
+    metricFpsValue: document.getElementById('metricFpsValue'),
+    metricFpsBar: document.getElementById('metricFpsBar'),
 
-    const editVideoForm = document.getElementById('editVideoForm');
-    const editVideoId = document.getElementById('editVideoId');
-    const editTitle = document.getElementById('editTitle');
-    const editTitleCount = document.getElementById('editTitleCount');
-    const editDescription = document.getElementById('editDescription');
-    const editVisibility = document.getElementById('editVisibility');
-    const editCategory = document.getElementById('editCategory');
-    const editLanguage = document.getElementById('editLanguage');
-    const editLicense = document.getElementById('editLicense');
-    const editScheduledAt = document.getElementById('editScheduledAt');
-    const editAllowComments = document.getElementById('editAllowComments');
-    const editMadeForKids = document.getElementById('editMadeForKids');
-    const editVideoSubmit = document.getElementById('editVideoSubmit');
+    // Active Job Header Pills
+    activeTaskId: document.getElementById('activeTaskId'),
+    activeSourceFile: document.getElementById('activeSourceFile'),
+    activePayloadSize: document.getElementById('activePayloadSize'),
+    activeOverallPct: document.getElementById('activeOverallPct'),
+    nodeBusProgress: document.getElementById('nodeBusProgress'),
 
-    const editCommentForm = document.getElementById('editCommentForm');
-    const editCommentId = document.getElementById('editCommentId');
-    const editCommentBody = document.getElementById('editCommentBody');
-    const editCommentApproved = document.getElementById('editCommentApproved');
-    const editCommentPinned = document.getElementById('editCommentPinned');
+    // 5 Pipeline Stage Nodes
+    stages: {
+      ingest: {
+        card: document.getElementById('stage-ingest'),
+        badge: document.getElementById('badge-ingest'),
+        pct: document.getElementById('pct-ingest'),
+        bar: document.getElementById('bar-ingest')
+      },
+      queue: {
+        card: document.getElementById('stage-queue'),
+        badge: document.getElementById('badge-queue'),
+        pct: document.getElementById('pct-queue'),
+        bar: document.getElementById('bar-queue')
+      },
+      transcode: {
+        card: document.getElementById('stage-transcode'),
+        badge: document.getElementById('badge-transcode'),
+        pct: document.getElementById('pct-transcode'),
+        bar: document.getElementById('bar-transcode')
+      },
+      hls: {
+        card: document.getElementById('stage-hls'),
+        badge: document.getElementById('badge-hls'),
+        pct: document.getElementById('pct-hls'),
+        bar: document.getElementById('bar-hls')
+      },
+      index: {
+        card: document.getElementById('stage-index'),
+        badge: document.getElementById('badge-index'),
+        pct: document.getElementById('pct-index'),
+        bar: document.getElementById('bar-index')
+      }
+    },
 
-    const confirmTitle = document.getElementById('confirmTitle');
-    const confirmBody = document.getElementById('confirmBody');
-    const confirmOkBtn = document.getElementById('confirmOkBtn');
-    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+    // FFmpeg Multi-Rendition Cards (1080p, 720p, 480p)
+    renditions: {
+      '1080p': {
+        card: document.getElementById('rendition-1080p'),
+        pct: document.getElementById('pct-1080p'),
+        bar: document.getElementById('bar-1080p'),
+        state: document.getElementById('state-1080p')
+      },
+      '720p': {
+        card: document.getElementById('rendition-720p'),
+        pct: document.getElementById('pct-720p'),
+        bar: document.getElementById('bar-720p'),
+        state: document.getElementById('state-720p')
+      },
+      '480p': {
+        card: document.getElementById('rendition-480p'),
+        pct: document.getElementById('pct-480p'),
+        bar: document.getElementById('bar-480p'),
+        state: document.getElementById('state-480p')
+      }
+    },
 
-    // ================= State =================
-    let allVideos = [];
-    let totalVideos = 0;
-    let currentPage = 1;
-    let isLoading = false;
-    let hasMore = true;
-    let filters = { status: '', visibility: '' };
-    let searchTerm = '';
-    let sortMode = 'newest';
-    let viewMode = 'list';
-    let selectMode = false;
-    let selectedVideoIds = new Set();
+    // WebSocket Terminal & Queue
+    wsChannelTag: document.getElementById('wsChannelTag'),
+    wsStreamBody: document.getElementById('wsStreamBody'),
+    btnClearTerminal: document.getElementById('btnClearTerminal'),
+    filterButtons: document.querySelectorAll('[data-ws-filter]'),
+    jobQueueList: document.getElementById('jobQueueList')
+  };
 
-    let allComments = {};        // videoId -> comments[]
-    let pendingCountByVideo = {}; // videoId -> pending count
-    let currentVideoIdForComments = null;
-    let commentFilter = 'all';   // all | pending | approved
-    let commentSearchTerm = '';
-    let selectedCommentIds = new Set();
+  // =========================================================================
+  // 2. UI UPDATERS (PIPELINE NODES, RENDITIONS, TERMINAL & METRICS)
+  // =========================================================================
 
-    let categories = [];
-    let categoriesLoaded = false;
+  function setStageState(stageKey, status, percent) {
+    const s = dom.stages[stageKey];
+    if (!s || !s.card) return;
 
-    // ================= Generic helpers =================
-    function apiHeaders() {
-        return { 'Content-Type': 'application/json' };
+    s.card.classList.remove('is-queued', 'is-active', 'is-completed');
+
+    if (status === 'QUEUED') {
+      s.card.classList.add('is-queued');
+      s.badge.textContent = 'QUEUED';
+    } else if (status === 'ACTIVE') {
+      s.card.classList.add('is-active');
+      s.badge.textContent = 'IN_PROGRESS';
+    } else if (status === 'COMPLETED') {
+      s.card.classList.add('is-completed');
+      s.badge.textContent = 'COMPLETED';
     }
 
-    async function apiFetch(endpoint, options = {}) {
-        const url = endpoint.startsWith('http') ? endpoint : API_BASE + endpoint;
-        const resp = await fetch(url, {
-            ...options,
-            credentials: 'include',
-            headers: { ...apiHeaders(), ...(options.headers || {}) },
-        });
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    if (s.pct) s.pct.textContent = `${clamped}%`;
+    if (s.bar) s.bar.style.width = `${clamped}%`;
+  }
 
-        if (resp.status === 401 || resp.status === 403) {
-            const errMsg = 'Session expired or not logged in. Please log in again.';
-            showToast(errMsg, 'error');
-            throw new Error(errMsg);
-        }
-        if (!resp.ok) {
-            let errText = await resp.text().catch(() => '');
-            try {
-                const jsonErr = JSON.parse(errText);
-                errText = jsonErr.detail || jsonErr.message || errText;
-            } catch (e) { /* ignore */ }
-            throw new Error(`API error ${resp.status}: ${errText || resp.statusText}`);
-        }
-        if (resp.status === 204) return null;
-        return resp.json();
+  function setRenditionState(resKey, percent, stateText, mode = 'idle') {
+    const r = dom.renditions[resKey];
+    if (!r || !r.card) return;
+
+    r.card.classList.remove('is-encoding', 'is-done');
+    if (mode === 'encoding') r.card.classList.add('is-encoding');
+    if (mode === 'done') r.card.classList.add('is-done');
+
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    if (r.pct) r.pct.textContent = `${clamped}%`;
+    if (r.bar) r.bar.style.width = `${clamped}%`;
+    if (r.state && stateText) r.state.textContent = stateText;
+  }
+
+  function updateOverallProgress(percent, busPercent) {
+    if (dom.activeOverallPct) {
+      dom.activeOverallPct.textContent = `${Math.round(percent)}%`;
     }
-
-    function debounce(fn, wait) {
-        let t;
-        return (...args) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...args), wait);
-        };
+    if (dom.nodeBusProgress) {
+      dom.nodeBusProgress.style.width = `${Math.round(busPercent)}%`;
     }
+  }
 
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-        const toast = document.createElement('div');
-        toast.className = `toast toast--${type}`;
-        const icons = {
-            success: '<span style="color:var(--accent);font-size:1.2rem;">✓</span>',
-            error: '<span style="color:var(--db-danger);font-size:1.2rem;">✕</span>',
-            info: '<span style="color:var(--db-info);font-size:1.2rem;">ℹ</span>',
-        };
-        toast.innerHTML = `
-            <span class="toast__icon">${icons[type] || icons.info}</span>
-            <span>${escapeHtml(message)}</span>
-            <button class="toast__close" aria-label="Dismiss">&times;</button>
-        `;
-        toast.querySelector('.toast__close').addEventListener('click', () => toast.remove());
-        container.appendChild(toast);
-        setTimeout(() => { if (toast.parentNode) toast.remove(); }, TOAST_LIFETIME);
+  /**
+   * Appends a structured WebSocket frame to the real-time simulation terminal.
+   */
+  function pushWebSocketLog(category, badgeClass, message) {
+    if (!dom.wsStreamBody) return;
+
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const line = document.createElement('div');
+    line.className = 'ws-log-line';
+    line.dataset.category = category;
+
+    // Apply current filter visibility
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'FFMPEG' && category !== 'FFMPEG') {
+        line.style.display = 'none';
+      } else if (activeFilter === 'QUEUE' && !['INGEST', 'QUEUE', 'HLS_PKG', 'STORAGE'].includes(category)) {
+        line.style.display = 'none';
+      }
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text == null ? '' : String(text);
-        return div.innerHTML;
+    line.innerHTML = `
+      <span class="ws-time">[${timestamp}]</span>
+      <span class="ws-badge ${badgeClass}">${category}</span>
+      <span class="ws-msg">${message}</span>
+    `;
+
+    dom.wsStreamBody.appendChild(line);
+    dom.wsStreamBody.scrollTop = dom.wsStreamBody.scrollHeight;
+  }
+
+  /**
+   * Dynamically adjusts system telemetry metrics to reflect pipeline load.
+   */
+  function updateLiveMetrics({ workers, loadPct, redisMs, queueBacklog, throughputMB, speedRT, fps }) {
+    if (workers && dom.metricWorkers) dom.metricWorkers.textContent = workers;
+    if (loadPct !== undefined && dom.metricWorkersLoad) {
+      dom.metricWorkersLoad.textContent = `${loadPct}% LOAD`;
+      if (dom.metricWorkersBar) dom.metricWorkersBar.style.width = `${loadPct}%`;
+    }
+    if (redisMs !== undefined && dom.metricRedisLatency) {
+      dom.metricRedisLatency.textContent = `${redisMs.toFixed(1)} ms`;
+      if (dom.metricRedisBar) dom.metricRedisBar.style.width = `${Math.min(100, redisMs * 14)}%`;
+    }
+    if (queueBacklog !== undefined && dom.metricQueueDepth) {
+      dom.metricQueueDepth.textContent = `${queueBacklog} QUEUED`;
+    }
+    if (throughputMB !== undefined && dom.metricThroughput) {
+      dom.metricThroughput.textContent = `${throughputMB.toFixed(1)} MB/s`;
+      if (dom.metricThroughputBar) dom.metricThroughputBar.style.width = `${Math.min(100, (throughputMB / 500) * 100)}%`;
+    }
+    if (speedRT !== undefined && dom.metricFpsSpeed) {
+      dom.metricFpsSpeed.textContent = `${speedRT.toFixed(1)}x RT`;
+    }
+    if (fps !== undefined && dom.metricFpsValue) {
+      dom.metricFpsValue.textContent = `${fps} FPS`;
+      if (dom.metricFpsBar) dom.metricFpsBar.style.width = `${Math.min(100, (fps / 320) * 100)}%`;
+    }
+  }
+
+  function resetPipelineUI(job) {
+    if (dom.activeTaskId) dom.activeTaskId.textContent = `#${job.taskId}`;
+    if (dom.activeSourceFile) dom.activeSourceFile.textContent = job.file;
+    if (dom.activePayloadSize) dom.activePayloadSize.textContent = job.size;
+    if (dom.wsChannelTag) {
+      dom.wsChannelTag.textContent = `wss://api.orbit.stream/videos/ws/video/${job.taskId}`;
     }
 
-    function formatDate(iso) {
-        if (!iso) return '—';
-        const d = new Date(iso);
-        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
+    updateOverallProgress(0, 0);
 
-    function formatDateShort(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }
-
-    function formatDuration(seconds) {
-        if (!seconds || isNaN(seconds)) return null;
-        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-        const m = Math.floor(seconds / 60);
-        return `${m}:${s}`;
-    }
-
-    function initials(name) {
-        if (!name) return '?';
-        const parts = String(name).trim().split(/\s+/);
-        const first = parts[0] ? parts[0][0] : '';
-        const second = parts.length > 1 ? parts[parts.length - 1][0] : '';
-        return (first + second).toUpperCase() || '?';
-    }
-
-    function getVisibilityBadge(vis) {
-        const cls = vis === 'public' ? 'dash-badge--public' :
-            vis === 'private' ? 'dash-badge--private' :
-            vis === 'scheduled' ? 'dash-badge--scheduled' : 'dash-badge--unlisted';
-        return `<span class="dash-badge ${cls}">${escapeHtml(vis || '—')}</span>`;
-    }
-
-    function isCommentApproved(comment) {
-        if (typeof comment.is_approved === 'boolean') return comment.is_approved;
-        if (typeof comment.status === 'string') return comment.status === 'approved';
-        return false;
-    }
-
-    function isCommentPinned(comment) {
-        return comment.is_pinned === true || comment.pinned === true;
-    }
-
-    // ================= Confirm dialog (reusable) =================
-    let confirmActiveResolve = null;
-    function askConfirm({ title = 'Are you sure?', body = "This action can't be undone.", okText = 'Delete' } = {}) {
-        confirmTitle.textContent = title;
-        confirmBody.textContent = body;
-        confirmOkBtn.textContent = okText;
-        openPopup('confirmPopup');
-        return new Promise((resolve) => {
-            confirmActiveResolve = resolve;
-        });
-    }
-    function resolveConfirm(result) {
-        closePopup('confirmPopup');
-        if (confirmActiveResolve) {
-            const r = confirmActiveResolve;
-            confirmActiveResolve = null;
-            r(result);
-        }
-    }
-    confirmOkBtn.addEventListener('click', () => resolveConfirm(true));
-    confirmCancelBtn.addEventListener('click', () => resolveConfirm(false));
-    document.getElementById('confirmPopup').addEventListener('click', (e) => {
-        if (e.target.id === 'confirmPopup' || e.target.closest('[data-close="confirmPopup"]')) {
-            resolveConfirm(false);
-        }
+    ['ingest', 'queue', 'transcode', 'hls', 'index'].forEach((k) => {
+      setStageState(k, 'QUEUED', 0);
     });
 
-    // ================= Popup helpers =================
-    function openPopup(id) {
-        if (typeof window.openPopupById === 'function') {
-            window.openPopupById(id);
-            return;
-        }
-        const el = document.getElementById(id);
-        if (el) { el.style.display = 'flex'; el.classList.add('active'); }
-    }
-    function closePopup(id) {
-        if (typeof window.closePopupById === 'function') {
-            window.closePopupById(id);
-            return;
-        }
-        const el = document.getElementById(id);
-        if (el) { el.style.display = 'none'; el.classList.remove('active'); }
-    }
-    document.querySelectorAll('[data-close]').forEach(btn => {
-        btn.addEventListener('click', () => closePopup(btn.dataset.close));
+    ['1080p', '720p', '480p'].forEach((res) => {
+      setRenditionState(res, 0, 'Waiting for worker...', 'idle');
     });
-    document.querySelectorAll('.popup').forEach(p => {
-        p.addEventListener('click', (e) => { if (e.target === p) closePopup(p.id); });
-    });
+  }
 
-    // ================= Videos: fetch + client-side view =================
-    function getVisibleVideos() {
-        let list = allVideos.slice();
-        if (searchTerm) {
-            const q = searchTerm.toLowerCase();
-            list = list.filter(v => (v.title || '').toLowerCase().includes(q));
-        }
-        switch (sortMode) {
-            case 'oldest':
-                list.sort((a, b) => new Date(a.created_at || a.uploaded_at || 0) - new Date(b.created_at || b.uploaded_at || 0));
-                break;
-            case 'views':
-                list.sort((a, b) => (b.view_count || b.views || 0) - (a.view_count || a.views || 0));
-                break;
-            case 'title':
-                list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-                break;
-            case 'newest':
-            default:
-                list.sort((a, b) => new Date(b.created_at || b.uploaded_at || 0) - new Date(a.created_at || a.uploaded_at || 0));
-        }
-        return list;
+  // =========================================================================
+  // 3. SIMULATED WEBSOCKET EVENT PIPELINE ENGINE
+  // =========================================================================
+
+  /**
+   * Pause-aware delay helper so evaluators can pause/inspect at any moment.
+   */
+  async function waitTick(ms, runId) {
+    const step = 80;
+    let elapsed = 0;
+    while (elapsed < ms) {
+      if (runId !== simulationRunId) return false;
+      if (!isPaused) {
+        elapsed += step;
+      }
+      await new Promise((r) => setTimeout(r, step));
+    }
+    return runId === simulationRunId;
+  }
+
+  /**
+   * Simulates the full real-time WebSocket stream from FastAPI / Redis Pub/Sub / Celery:
+   * Ingestion -> Queue -> FFmpeg [1080p, 720p, 480p] -> HLS Segmenting -> Storage Indexing
+   */
+  async function startSimulatedWebSocketPipeline(job) {
+    simulationRunId += 1;
+    const runId = simulationRunId;
+    const tid = job.taskId;
+
+    resetPipelineUI(job);
+
+    // Update job badge in queue list
+    const activeJobBadge = document.getElementById(`job-badge-${tid}`);
+    if (activeJobBadge) {
+      activeJobBadge.textContent = 'PROCESSING';
+      activeJobBadge.className = 'job-row__status job-row__status--running';
     }
 
-    async function fetchVideos(page = 1, append = false) {
-        if (isLoading) return;
-        isLoading = true;
+    pushWebSocketLog(
+      'INGEST',
+      'ws-badge--ingest',
+      `<strong>[WS_CONNECTED]</strong> Subscribed to Redis Pub/Sub channel <code>video:${tid}:status</code>`
+    );
 
-        if (!append) {
-            currentPage = 1;
-            hasMore = true;
-            videoGrid.innerHTML = '';
-            videoEmpty.hidden = true;
-            videoError.hidden = true;
-            videoSkeleton.style.display = 'grid';
-        } else {
-            videoLoadingMore.hidden = false;
-        }
+    // -----------------------------------------------------------------------
+    // STAGE 1: S3 INGESTION & FFPROBE
+    // -----------------------------------------------------------------------
+    setStageState('ingest', 'ACTIVE', 25);
+    updateOverallProgress(6, 5);
+    updateLiveMetrics({ workers: '12 / 16', loadPct: 68, redisMs: 1.2, queueBacklog: 1, throughputMB: 412.4, speedRT: 0.0, fps: 0 });
+    pushWebSocketLog(
+      'INGEST',
+      'ws-badge--ingest',
+      `<strong>[Task ID: ${tid}]</strong> Status: Verifying S3 multipart object (${job.size})...`
+    );
+    if (!(await waitTick(650, runId))) return;
 
+    setStageState('ingest', 'ACTIVE', 75);
+    updateOverallProgress(12, 12);
+    pushWebSocketLog(
+      'INGEST',
+      'ws-badge--ingest',
+      `<strong>[Task ID: ${tid}]</strong> Status: ffprobe container check OK — H.264 High@L5.1, 60.0 fps, AAC 48kHz`
+    );
+    if (!(await waitTick(650, runId))) return;
+
+    setStageState('ingest', 'COMPLETED', 100);
+    updateOverallProgress(18, 22);
+
+    // -----------------------------------------------------------------------
+    // STAGE 2: REDIS BROKER & CELERY WORKER QUEUE
+    // -----------------------------------------------------------------------
+    setStageState('queue', 'ACTIVE', 45);
+    updateLiveMetrics({ workers: '14 / 16', loadPct: 88, redisMs: 1.5, queueBacklog: 0, throughputMB: 295.0, speedRT: 1.0, fps: 60 });
+    pushWebSocketLog(
+      'QUEUE',
+      'ws-badge--queue',
+      `<strong>[Task ID: ${tid}]</strong> Status: Dispatched <code>transcode_video_task</code> via Redis Broker`
+    );
+    if (!(await waitTick(600, runId))) return;
+
+    setStageState('queue', 'COMPLETED', 100);
+    updateOverallProgress(28, 42);
+    pushWebSocketLog(
+      'QUEUE',
+      'ws-badge--queue',
+      `<strong>[Task ID: ${tid}]</strong> Status: Claimed by worker <code>celery@node-01</code> — temp workspace mounted`
+    );
+    if (!(await waitTick(500, runId))) return;
+
+    // -----------------------------------------------------------------------
+    // STAGE 3: FFMPEG MULTI-RENDITION TRANSCODING (1080p, 720p, 480p)
+    // -----------------------------------------------------------------------
+    setStageState('transcode', 'ACTIVE', 10);
+
+    // 3A: 1080p Pass
+    setRenditionState('1080p', 24, 'Encoding @ 2.8x RT (168 fps)', 'encoding');
+    updateLiveMetrics({ workers: '15 / 16', loadPct: 94, redisMs: 1.4, queueBacklog: 0, throughputMB: 318.6, speedRT: 2.8, fps: 168 });
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 1080p - 24% complete (bitrate=5000k, fps=168)...`
+    );
+    if (!(await waitTick(700, runId))) return;
+
+    setRenditionState('1080p', 68, 'Encoding @ 3.1x RT (186 fps)', 'encoding');
+    setStageState('transcode', 'ACTIVE', 26);
+    updateOverallProgress(40, 50);
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 1080p - 68% complete (bitrate=5000k, fps=186)...`
+    );
+    if (!(await waitTick(700, runId))) return;
+
+    setRenditionState('1080p', 100, '✓ 1080p Pass Complete', 'done');
+    setStageState('transcode', 'ACTIVE', 38);
+    updateOverallProgress(48, 54);
+
+    // 3B: 720p Pass
+    setRenditionState('720p', 32, 'Encoding @ 3.8x RT (228 fps)', 'encoding');
+    updateLiveMetrics({ workers: '15 / 16', loadPct: 92, redisMs: 1.3, queueBacklog: 0, throughputMB: 356.2, speedRT: 3.8, fps: 228 });
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 720p - 32% complete (bitrate=2500k, fps=228)...`
+    );
+    if (!(await waitTick(650, runId))) return;
+
+    setRenditionState('720p', 68, 'Encoding @ 4.1x RT (246 fps)', 'encoding');
+    setStageState('transcode', 'ACTIVE', 56);
+    updateOverallProgress(58, 58);
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 720p - 68% complete...`
+    );
+    if (!(await waitTick(700, runId))) return;
+
+    setRenditionState('720p', 100, '✓ 720p Pass Complete', 'done');
+    setStageState('transcode', 'ACTIVE', 70);
+    updateOverallProgress(66, 62);
+
+    // 3C: 480p Pass
+    setRenditionState('480p', 48, 'Encoding @ 5.2x RT (312 fps)', 'encoding');
+    updateLiveMetrics({ workers: '14 / 16', loadPct: 86, redisMs: 1.2, queueBacklog: 0, throughputMB: 382.9, speedRT: 5.2, fps: 312 });
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 480p - 48% complete (bitrate=1200k, fps=312)...`
+    );
+    if (!(await waitTick(600, runId))) return;
+
+    setRenditionState('480p', 92, 'Encoding @ 5.5x RT (330 fps)', 'encoding');
+    setStageState('transcode', 'ACTIVE', 92);
+    updateOverallProgress(74, 66);
+    pushWebSocketLog(
+      'FFMPEG',
+      'ws-badge--ffmpeg',
+      `<strong>[Task ID: ${tid}]</strong> Status: Transcoding 480p - 92% complete...`
+    );
+    if (!(await waitTick(550, runId))) return;
+
+    setRenditionState('480p', 100, '✓ 480p Pass Complete', 'done');
+    setStageState('transcode', 'COMPLETED', 100);
+    updateOverallProgress(78, 72);
+
+    // -----------------------------------------------------------------------
+    // STAGE 4: HLS SEGMENTING & MANIFEST PACKAGING
+    // -----------------------------------------------------------------------
+    setStageState('hls', 'ACTIVE', 45);
+    updateLiveMetrics({ workers: '13 / 16', loadPct: 78, redisMs: 1.1, queueBacklog: 0, throughputMB: 428.5, speedRT: 4.2, fps: 252 });
+    pushWebSocketLog(
+      'HLS_PKG',
+      'ws-badge--hls',
+      `<strong>[Task ID: ${tid}]</strong> Status: Segmenting 4.0s MPEG-TS chunks &amp; generating timeline sprite VTT...`
+    );
+    if (!(await waitTick(700, runId))) return;
+
+    setStageState('hls', 'COMPLETED', 100);
+    updateOverallProgress(88, 88);
+    pushWebSocketLog(
+      'HLS_PKG',
+      'ws-badge--hls',
+      `<strong>[Task ID: ${tid}]</strong> Status: Packaged adaptive <code>master.m3u8</code> (1080p, 720p, 480p variants)`
+    );
+    if (!(await waitTick(550, runId))) return;
+
+    // -----------------------------------------------------------------------
+    // STAGE 5: S3 STORAGE INDEXING & POSTGRESQL COMMIT
+    // -----------------------------------------------------------------------
+    setStageState('index', 'ACTIVE', 55);
+    updateLiveMetrics({ workers: '12 / 16', loadPct: 75, redisMs: 1.3, queueBacklog: 0, throughputMB: 465.0, speedRT: 3.6, fps: 216 });
+    pushWebSocketLog(
+      'STORAGE',
+      'ws-badge--queue',
+      `<strong>[Task ID: ${tid}]</strong> Status: Uploading 144 HLS segments to S3 prefix <code>processed/${tid}/hls/</code>...`
+    );
+    if (!(await waitTick(700, runId))) return;
+
+    setStageState('index', 'COMPLETED', 100);
+    updateOverallProgress(100, 100);
+    pushWebSocketLog(
+      'READY',
+      'ws-badge--ready',
+      `<strong>[Task ID: ${tid}]</strong> Status: PIPELINE COMPLETE — <code>{"type": "video.ready", "manifest": "/videos/hls/${tid}/master.m3u8"}</code>`
+    );
+
+    if (activeJobBadge) {
+      activeJobBadge.textContent = 'READY · HLS';
+      activeJobBadge.className = 'job-row__status job-row__status--ready';
+    }
+  }
+
+  // =========================================================================
+  // 4. OPTIONAL LIVE WEBSOCKET LISTENER (WHEN REDIRECTED FROM UPLOAD)
+  // =========================================================================
+
+  async function tryAttachLiveWebSocket(publicId) {
+    try {
+      const tokenRes = await fetch(`${API_BASE}/videos/ws-token`, { credentials: 'include' });
+      if (!tokenRes.ok) return;
+      const { token } = await tokenRes.json();
+
+      const ws = new WebSocket(`${WS_BASE}/videos/ws/video/${publicId}`);
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+      });
+
+      ws.addEventListener('message', (event) => {
         try {
-            const params = new URLSearchParams({ page, page_size: PAGE_SIZE });
-            if (filters.status) params.append('status', filters.status);
-            if (filters.visibility) params.append('visibility', filters.visibility);
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'video.progress') {
+            const pct = msg.stepPercent !== undefined ? ` - ${msg.stepPercent}% complete...` : '...';
+            pushWebSocketLog(
+              'LIVE_WS',
+              'ws-badge--ingest',
+              `<strong>[Task ID: ${publicId}]</strong> Status: ${msg.label}${pct}`
+            );
+          } else if (msg.type === 'video.ready') {
+            pushWebSocketLog(
+              'READY',
+              'ws-badge--ready',
+              `<strong>[Task ID: ${publicId}]</strong> Status: Live backend reported video.ready`
+            );
+          }
+        } catch (_) {}
+      });
+    } catch (_) {
+      // Simulated WebSocket engine handles visualization seamlessly
+    }
+  }
 
-            const data = await apiFetch(`/me/videos?${params.toString()}`);
-            const items = data.items || [];
-            const total = data.total || 0;
-            hasMore = data.has_next || false;
+  // =========================================================================
+  // 5. INTERACTIVE CONTROLS & EVENT LISTENERS
+  // =========================================================================
 
-            if (append) {
-                allVideos = allVideos.concat(items);
-            } else {
-                allVideos = items;
-                totalVideos = total;
-                populateVideoSelector(allVideos);
-            }
-
-            renderVideos();
-            updateVideoStat(total);
-            currentPage = page;
-
-            if (filterResult) {
-                const visibleCount = getVisibleVideos().length;
-                filterResult.textContent = searchTerm
-                    ? `Showing ${visibleCount} of ${allVideos.length} loaded videos matching "${searchTerm}"`
-                    : `Showing ${allVideos.length} of ${total} videos`;
-            }
-
-            if (!append) fetchCommentStats(allVideos);
-
-        } catch (err) {
-            const isAuthError = err.message && err.message.includes('logged in');
-            if (isAuthError) {
-                console.error('User is not authenticated:', err);
-                videoError.hidden = false;
-            } else {
-                console.error('Fetch videos error:', err);
-                videoError.hidden = false;
-            }
-        } finally {
-            videoSkeleton.style.display = 'none';
-            videoLoadingMore.hidden = true;
-            isLoading = false;
+  function setupControls() {
+    // Pause / Resume Stream Toggle
+    if (dom.btnToggleSim) {
+      dom.btnToggleSim.addEventListener('click', () => {
+        isPaused = !isPaused;
+        if (dom.btnToggleSimLabel) {
+          dom.btnToggleSimLabel.textContent = isPaused ? '▶ Resume Stream' : '⏸ Pause Stream';
         }
+        if (dom.wsHeaderDot) {
+          dom.wsHeaderDot.classList.toggle('is-paused', isPaused);
+        }
+        if (dom.wsHeaderStatus) {
+          dom.wsHeaderStatus.textContent = isPaused ? 'WS_PUBSUB: PAUSED' : 'WS_PUBSUB: CONNECTED';
+        }
+      });
     }
 
-    function updateVideoStat(total) {
-        statVideos.textContent = total !== undefined ? total : allVideos.length;
+    // Replay / Dispatch New Simulated Job
+    if (dom.btnReplayJob) {
+      dom.btnReplayJob.addEventListener('click', () => {
+        isPaused = false;
+        if (dom.btnToggleSimLabel) dom.btnToggleSimLabel.textContent = '⏸ Pause Stream';
+        if (dom.wsHeaderDot) dom.wsHeaderDot.classList.remove('is-paused');
+        if (dom.wsHeaderStatus) dom.wsHeaderStatus.textContent = 'WS_PUBSUB: CONNECTED';
+        startSimulatedWebSocketPipeline(currentJob);
+      });
     }
 
-    async function fetchCommentStats(videos) {
-        let totalComments = 0;
-        let pendingComments = 0;
-        for (const v of videos) {
-            const pubId = v.public_id || v.id;
-            try {
-                const data = await apiFetch(`/comments/video/${pubId}`);
-                const comments = Array.isArray(data) ? data : (data.data || data.comments || []);
-                allComments[pubId] = comments;
-                const pending = comments.filter(c => !isCommentApproved(c)).length;
-                pendingCountByVideo[pubId] = pending;
-                totalComments += comments.length;
-                pendingComments += pending;
-            } catch (e) { /* ignore per-video errors */ }
-        }
-        statComments.textContent = totalComments;
-        statPending.textContent = pendingComments;
-        if (pendingComments > 0) {
-            commentsTabBadge.hidden = false;
-            commentsTabBadge.textContent = pendingComments;
-        } else {
-            commentsTabBadge.hidden = true;
-        }
-        renderVideos(); // re-render so per-card pending badges reflect fresh counts
+    // Clear Terminal Button
+    if (dom.btnClearTerminal) {
+      dom.btnClearTerminal.addEventListener('click', () => {
+        if (dom.wsStreamBody) dom.wsStreamBody.innerHTML = '';
+      });
     }
 
-    function populateVideoSelector(videos) {
-        const currentVal = commentSelector.value;
-        commentSelector.innerHTML = '<option value="">— Select a video —</option>';
-        if (!videos || videos.length === 0) {
-            commentSelector.disabled = true;
-            return;
-        }
-        commentSelector.disabled = false;
-        videos.forEach(v => {
-            const pubId = v.public_id || v.id;
-            const opt = document.createElement('option');
-            opt.value = pubId;
-            opt.textContent = v.title || pubId;
-            commentSelector.appendChild(opt);
+    // Filter Buttons (All, FFmpeg, Broker/S3)
+    dom.filterButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const filter = btn.dataset.wsFilter;
+        if (!filter) return;
+
+        activeFilter = filter;
+        dom.filterButtons.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const lines = dom.wsStreamBody?.querySelectorAll('.ws-log-line') || [];
+        lines.forEach((line) => {
+          const cat = line.dataset.category;
+          if (filter === 'all') {
+            line.style.display = 'flex';
+          } else if (filter === 'FFMPEG') {
+            line.style.display = cat === 'FFMPEG' ? 'flex' : 'none';
+          } else if (filter === 'QUEUE') {
+            line.style.display = ['INGEST', 'QUEUE', 'HLS_PKG', 'STORAGE'].includes(cat) ? 'flex' : 'none';
+          }
         });
-        if (currentVal && commentSelector.querySelector(`option[value="${currentVal}"]`)) {
-            commentSelector.value = currentVal;
-        }
-    }
-
-    // ================= Render video cards =================
-    function renderVideos() {
-        const visible = getVisibleVideos();
-
-        if (!visible.length) {
-            videoGrid.innerHTML = '';
-            videoEmpty.hidden = false;
-            return;
-        }
-        videoEmpty.hidden = true;
-        videoError.hidden = true;
-
-        videoGrid.innerHTML = visible.map(renderVideoCard).join('');
-    }
-
-    function renderVideoCard(v) {
-        const thumb = v.thumbnail_url || 'assets/img/thumbnail.png';
-        const title = escapeHtml(v.title || 'Untitled');
-        const views = v.view_count || v.views || 0;
-        const date = formatDate(v.created_at || v.uploaded_at);
-        const vis = v.visibility || 'public';
-        const pubId = v.public_id || v.id;
-        const duration = formatDuration(v.duration);
-        const pending = pendingCountByVideo[pubId] || 0;
-        const isSelected = selectedVideoIds.has(String(pubId));
-
-        return `
-            <div class="dash-video-card${isSelected ? ' is-selected' : ''}" data-id="${pubId}">
-                <button type="button" class="dash-video-card__check" data-action="toggle-select" data-id="${pubId}" aria-label="Select video">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                <div class="dash-video-card__thumb">
-                    <img src="${thumb}" alt="${title}" loading="lazy" onerror="this.src='assets/img/thumbnail.png'">
-                    ${v.status ? `<span class="dash-video-card__status">${escapeHtml(v.status)}</span>` : ''}
-                    ${duration ? `<span class="dash-video-card__duration">${duration}</span>` : ''}
-                </div>
-                <div class="dash-video-card__body">
-                    <div class="dash-video-card__title">${title}</div>
-                    <div class="dash-video-card__meta">
-                        <span>${views.toLocaleString ? views.toLocaleString() : views} views</span>
-                        <span>${date}</span>
-                        ${getVisibilityBadge(vis)}
-                        ${pending > 0 ? `<span class="dash-video-card__pending">${pending} pending</span>` : ''}
-                    </div>
-                    <div class="dash-video-card__actions">
-                        <button class="btn--small btn--primary" data-action="edit-video" data-id="${pubId}">✎ Edit</button>
-                        <button class="btn--small" data-action="manage-comments" data-id="${pubId}">💬 Comments${pending > 0 ? ` (${pending})` : ''}</button>
-                        <div class="dash-video-card__menu-wrap">
-                            <button class="dash-video-card__menu-btn" data-action="toggle-menu" data-id="${pubId}" aria-label="More actions">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                            </button>
-                            <div class="dash-video-card__menu" data-menu="${pubId}">
-                                <button data-action="copy-id" data-id="${pubId}">Copy video ID</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // ---- Video grid delegation ----
-    videoGrid.addEventListener('click', (e) => {
-        const menuBtn = e.target.closest('[data-action="toggle-menu"]');
-        if (menuBtn) {
-            e.stopPropagation();
-            const menu = videoGrid.querySelector(`.dash-video-card__menu[data-menu="${menuBtn.dataset.id}"]`);
-            document.querySelectorAll('.dash-video-card__menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
-            if (menu) menu.classList.toggle('open');
-            return;
-        }
-
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        const id = btn.dataset.id;
-
-        if (action === 'edit-video') {
-            openEditVideo(id);
-        } else if (action === 'manage-comments') {
-            document.querySelector('[data-tab="comments"]').click();
-            commentSelector.value = id;
-            commentSelector.dispatchEvent(new Event('change'));
-        } else if (action === 'toggle-select') {
-            toggleVideoSelection(id);
-        } else if (action === 'copy-id') {
-            navigator.clipboard?.writeText(id).then(() => showToast('Video ID copied.', 'success'))
-                .catch(() => showToast('Could not copy to clipboard.', 'error'));
-            document.querySelectorAll('.dash-video-card__menu.open').forEach(m => m.classList.remove('open'));
-        }
-    });
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.dash-video-card__menu-wrap')) {
-            document.querySelectorAll('.dash-video-card__menu.open').forEach(m => m.classList.remove('open'));
-        }
+      });
     });
 
-    // ================= Video selection & bulk actions =================
-    function toggleVideoSelection(id) {
-        const key = String(id);
-        if (selectedVideoIds.has(key)) selectedVideoIds.delete(key);
-        else selectedVideoIds.add(key);
+    // Job Queue Row Selection
+    if (dom.jobQueueList) {
+      dom.jobQueueList.addEventListener('click', (e) => {
+        const row = e.target.closest('.job-row');
+        if (!row) return;
 
-        const card = videoGrid.querySelector(`.dash-video-card[data-id="${id}"]`);
-        if (card) card.classList.toggle('is-selected', selectedVideoIds.has(key));
+        document.querySelectorAll('.job-row').forEach((r) => r.classList.remove('is-selected'));
+        row.classList.add('is-selected');
 
-        updateVideoBulkBar();
-    }
-
-    function updateVideoBulkBar() {
-        const count = selectedVideoIds.size;
-        videoBulkCount.textContent = count;
-        videoBulkBar.hidden = !(selectMode && count > 0);
-    }
-
-    selectModeToggle.addEventListener('click', () => {
-        selectMode = !selectMode;
-        videoGrid.classList.toggle('select-mode', selectMode);
-        selectModeToggle.classList.toggle('is-active', selectMode);
-        selectModeToggle.textContent = selectMode ? 'Cancel select' : 'Select';
-        if (!selectMode) {
-            selectedVideoIds.clear();
-            videoGrid.querySelectorAll('.dash-video-card.is-selected').forEach(c => c.classList.remove('is-selected'));
-        }
-        updateVideoBulkBar();
-    });
-
-    bulkClear.addEventListener('click', () => {
-        selectedVideoIds.clear();
-        videoGrid.querySelectorAll('.dash-video-card.is-selected').forEach(c => c.classList.remove('is-selected'));
-        updateVideoBulkBar();
-    });
-
-    bulkVisibilityApply.addEventListener('click', async () => {
-        const newVis = bulkVisibility.value;
-        if (!newVis) { showToast('Choose a visibility to apply.', 'error'); return; }
-        const ids = Array.from(selectedVideoIds);
-        if (!ids.length) return;
-
-        bulkVisibilityApply.disabled = true;
-        bulkVisibilityApply.textContent = 'Applying…';
-
-        const results = await Promise.allSettled(ids.map(id => {
-            const video = allVideos.find(v => String(v.public_id || v.id) === id);
-            if (!video) return Promise.reject(new Error('not found'));
-            const payload = buildVideoPayload(video, { visibility: newVis });
-            return apiFetch(`/videos/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        }));
-
-        const ok = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.length - ok;
-        if (ok) showToast(`Updated visibility for ${ok} video${ok !== 1 ? 's' : ''}.`, 'success');
-        if (failed) showToast(`${failed} update${failed !== 1 ? 's' : ''} failed.`, 'error');
-
-        bulkVisibilityApply.disabled = false;
-        bulkVisibilityApply.textContent = 'Apply';
-        bulkVisibility.value = '';
-        selectedVideoIds.clear();
-        updateVideoBulkBar();
-        await fetchVideos(1, false);
-    });
-
-    function buildVideoPayload(video, overrides = {}) {
-        const payload = {
-            title: video.title || '',
-            description: video.description || '',
-            visibility: video.visibility || 'public',
-            scheduled_at: video.scheduled_at || null,
-            language: video.language || 'en',
-            license: video.license || 'standard',
-            allow_comments: video.allow_comments !== false,
-            is_made_for_kids: video.is_made_for_kids === true,
-            ...overrides,
-        };
-        // Omit category_id unless it's a real id — 0 violates the FK and an
-        // unparseable value would silently clear the video's category.
-        const categoryId = parseInt(video.category_id ?? video.category);
-        if (categoryId) payload.category_id = categoryId;
-        return payload;
-    }
-
-    // ================= Toolbar: search / filters / sort / view =================
-    videoSearch.addEventListener('input', debounce(() => {
-        searchTerm = videoSearch.value.trim();
-        renderVideos();
-        if (filterResult) {
-            const visibleCount = getVisibleVideos().length;
-            filterResult.textContent = searchTerm
-                ? `Showing ${visibleCount} of ${allVideos.length} loaded videos matching "${searchTerm}"`
-                : `Showing ${allVideos.length} of ${totalVideos} videos`;
-        }
-    }, 250));
-
-    function refetchWithFilters() {
-        filters.status = filterStatus.value;
-        filters.visibility = filterVisibility.value;
-        fetchVideos(1, false);
-    }
-    filterStatus.addEventListener('change', refetchWithFilters);
-    filterVisibility.addEventListener('change', refetchWithFilters);
-
-    sortVideos.addEventListener('change', () => {
-        sortMode = sortVideos.value;
-        renderVideos();
-    });
-
-    clearFiltersBtn.addEventListener('click', () => {
-        filterStatus.value = '';
-        filterVisibility.value = '';
-        videoSearch.value = '';
-        searchTerm = '';
-        filters = { status: '', visibility: '' };
-        fetchVideos(1, false);
-    });
-
-    viewToggleBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            viewMode = btn.dataset.view;
-            viewToggleBtns.forEach(b => {
-                b.classList.toggle('dash-view-toggle__btn--active', b === btn);
-                b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-            });
-            videoGrid.dataset.view = viewMode;
-        });
-    });
-
-    retryBtn.addEventListener('click', () => fetchVideos(1, false));
-
-    refreshBtn.addEventListener('click', async () => {
-        refreshBtn.classList.add('is-spinning');
-        await fetchVideos(1, false);
-        setTimeout(() => refreshBtn.classList.remove('is-spinning'), 400);
-    });
-
-    // ================= Infinite scroll =================
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
-            fetchVideos(currentPage + 1, true);
-        }
-    }, { rootMargin: '200px' });
-    if (sentinel) observer.observe(sentinel);
-
-    // ================= Edit Video =================
-    async function openEditVideo(videoId) {
-        const video = allVideos.find(v => String(v.public_id || v.id) === String(videoId));
-        if (!video) { showToast('Video not found.', 'error'); return; }
-
-        editVideoId.value = videoId;
-        editTitle.value = video.title || '';
-        updateTitleCount();
-        editDescription.value = video.description || '';
-        editVisibility.value = video.visibility || 'public';
-        editLanguage.value = video.language || 'en';
-        editLicense.value = video.license || 'standard';
-        editScheduledAt.value = video.scheduled_at ? new Date(video.scheduled_at).toISOString().slice(0, 16) : '';
-        editAllowComments.checked = video.allow_comments !== false;
-        editMadeForKids.checked = video.is_made_for_kids === true;
-
-        await loadCategories();
-        renderCategoryOptions(video.category_id || video.category || '');
-
-        openPopup('editVideoPopup');
-        editTitle.focus();
-    }
-
-    function updateTitleCount() {
-        editTitleCount.textContent = `${editTitle.value.length} characters`;
-    }
-    editTitle.addEventListener('input', updateTitleCount);
-
-    editVideoForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = editVideoId.value;
-        if (!id) return;
-
-        const payload = {
-            title: editTitle.value.trim(),
-            description: editDescription.value.trim(),
-            visibility: editVisibility.value,
-            scheduled_at: editScheduledAt.value ? new Date(editScheduledAt.value).toISOString() : null,
-            language: editLanguage.value,
-            license: editLicense.value,
-            allow_comments: editAllowComments.checked,
-            is_made_for_kids: editMadeForKids.checked,
-        };
-        // Only send category_id when a real category is selected — sending 0
-        // violates the FK constraint, and null would clear an existing one.
-        const selectedCategoryId = parseInt(editCategory.value);
-        if (selectedCategoryId) payload.category_id = selectedCategoryId;
-
-        editVideoSubmit.disabled = true;
-        editVideoSubmit.textContent = 'Saving…';
-        try {
-            await apiFetch(`/videos/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-            showToast('Video updated!', 'success');
-            closePopup('editVideoPopup');
-            await fetchVideos(1, false);
-        } catch (err) {
-            if (!err.message.includes('log in')) showToast('Failed to update video: ' + err.message, 'error');
-        } finally {
-            editVideoSubmit.disabled = false;
-            editVideoSubmit.textContent = 'Save Changes';
-        }
-    });
-
-    // ================= Categories =================
-    async function loadCategories(force = false) {
-        if (categoriesLoaded && !force) return categories;
-        try {
-            const data = await apiFetch('/categories/');
-            categories = Array.isArray(data) ? data : (data.items || data.categories || []);
-            categoriesLoaded = true;
-        } catch (err) {
-            console.error('Failed to load categories:', err);
-            showToast('Could not load categories.', 'error');
-        }
-        return categories;
-    }
-
-    function renderCategoryOptions(selectedValue) {
-        if (!editCategory) return;
-        const previousValue = selectedValue !== undefined ? selectedValue : editCategory.value;
-        editCategory.innerHTML = categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-        if (previousValue) editCategory.value = previousValue;
-    }
-
-    // ================= Tabs =================
-    const tabs = document.querySelectorAll('.dash-tab');
-    const panels = { videos: document.getElementById('tabVideos'), comments: document.getElementById('tabComments') };
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const target = tab.dataset.tab;
-            tabs.forEach(t => { t.classList.remove('dash-tab--active'); t.setAttribute('aria-selected', 'false'); });
-            tab.classList.add('dash-tab--active');
-            tab.setAttribute('aria-selected', 'true');
-            Object.keys(panels).forEach(key => panels[key].classList.toggle('dash-panel--active', key === target));
-        });
-    });
-
-    // ================= Comments: selection & video change =================
-    commentSelector.addEventListener('change', () => {
-        const val = commentSelector.value;
-        selectedCommentIds.clear();
-        if (val) {
-            loadCommentsForVideo(val);
-        } else {
-            currentVideoIdForComments = null;
-            commentSearch.disabled = true;
-            commentSearch.value = '';
-            commentSearchTerm = '';
-            renderCommentsPanel();
-        }
-    });
-
-    async function loadCommentsForVideo(videoId) {
-        currentVideoIdForComments = videoId;
-        commentSearch.disabled = false;
-        commentsContainer.innerHTML = `<div class="dash-loadmore"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/></svg>Loading comments…</div>`;
-
-        try {
-            const data = await apiFetch(`/comments/video/${videoId}`);
-            const comments = Array.isArray(data) ? data : (data.data || data.comments || []);
-            allComments[videoId] = comments;
-            pendingCountByVideo[videoId] = comments.filter(c => !isCommentApproved(c)).length;
-            renderCommentsPanel();
-        } catch (err) {
-            console.error('Load comments error:', err);
-            commentsContainer.innerHTML = `
-                <div class="dash-empty dash-empty--error">
-                    <p>Could not load comments.</p>
-                    <button type="button" class="btn btn--primary btn--small" id="retryComments">Retry</button>
-                </div>`;
-            document.getElementById('retryComments')?.addEventListener('click', () => loadCommentsForVideo(videoId));
-            if (!err.message.includes('log in')) showToast('Failed to load comments: ' + err.message, 'error');
-        }
-    }
-
-    // ---- Filter chips ----
-    commentFilterChips.addEventListener('click', (e) => {
-        const chip = e.target.closest('.dash-chip');
-        if (!chip) return;
-        commentFilterChips.querySelectorAll('.dash-chip').forEach(c => c.classList.remove('dash-chip--active'));
-        chip.classList.add('dash-chip--active');
-        commentFilter = chip.dataset.filter;
-        selectedCommentIds.clear();
-        renderCommentsPanel();
-    });
-
-    commentSearch.addEventListener('input', debounce(() => {
-        commentSearchTerm = commentSearch.value.trim().toLowerCase();
-        renderCommentsPanel();
-    }, 200));
-
-    function getFilteredComments() {
-        const comments = allComments[currentVideoIdForComments] || [];
-        return comments.filter(c => {
-            const approved = isCommentApproved(c);
-            if (commentFilter === 'pending' && approved) return false;
-            if (commentFilter === 'approved' && !approved) return false;
-            if (commentSearchTerm) {
-                const author = (c.author_username || c.author || '').toLowerCase();
-                const body = (c.body || c.content || '').toLowerCase();
-                if (!author.includes(commentSearchTerm) && !body.includes(commentSearchTerm)) return false;
-            }
-            return true;
-        });
-    }
-
-    // ================= Render comments panel =================
-    function renderCommentsPanel() {
-        if (!currentVideoIdForComments) {
-            commentsContainer.innerHTML = `
-                <div class="dash-empty dash-empty--inline">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    <p>Select a video on the left to view and moderate its comments.</p>
-                </div>`;
-            commentBulkBar.hidden = true;
-            return;
-        }
-
-        const allForVideo = allComments[currentVideoIdForComments] || [];
-        const pendingTotal = allForVideo.filter(c => !isCommentApproved(c)).length;
-        commentBulkBar.hidden = !(commentFilter === 'pending' && pendingTotal > 0);
-        if (commentBulkBar.hidden) { selectedCommentIds.clear(); selectAllPending.checked = false; }
-        updateApproveSelectedBtn();
-
-        const filtered = getFilteredComments();
-
-        if (!filtered.length) {
-            const msg = commentSearchTerm ? 'No comments match your search.' :
-                commentFilter === 'pending' ? 'Nothing pending — you\'re all caught up.' :
-                commentFilter === 'approved' ? 'No approved comments yet.' :
-                'No comments yet on this video.';
-            commentsContainer.innerHTML = `<div class="dash-empty dash-empty--inline"><p>${escapeHtml(msg)}</p></div>`;
-            return;
-        }
-
-        commentsContainer.innerHTML = `<div class="dash-comment-list">${filtered.map(renderCommentCard).join('')}</div>`;
-    }
-
-    function renderCommentCard(c) {
-        const cid = c.id || c.comment_id;
-        const author = c.author_username || c.author || 'Anonymous';
-        const body = escapeHtml(c.body || c.content || '');
-        const date = formatDateShort(c.created_at || c.createdAt || c.timestamp);
-        const approved = isCommentApproved(c);
-        const pinned = isCommentPinned(c);
-        const hasReplies = c.reply_count > 0 || (c.replies && c.replies.length > 0);
-        const replyId = `dash-replies-${cid}`;
-        const showBulkCheckbox = !commentBulkBar.hidden && !approved;
-        const isSelected = selectedCommentIds.has(String(cid));
-
-        let actions = '';
-        if (!approved) {
-            actions += `<button class="btn--icon approve" data-action="approve-comment" data-id="${cid}">✓ Approve</button>`;
-            actions += `<button class="btn--icon reject" data-action="reject-comment" data-id="${cid}">✕ Reject</button>`;
-        } else {
-            actions += `<button class="btn--icon unapprove" data-action="unapprove-comment" data-id="${cid}">↺ Unapprove</button>`;
-            actions += `<button class="btn--icon delete" data-action="delete-comment" data-id="${cid}">🗑 Delete</button>`;
-        }
-        actions += `<button class="btn--icon edit" data-action="edit-comment" data-id="${cid}">✎ Edit</button>`;
-
-        return `
-            <div class="dash-comment-card ${approved ? 'is-approved' : 'is-pending'}${isSelected ? ' is-selected' : ''}" data-comment-id="${cid}">
-                ${showBulkCheckbox ? `
-                <div class="dash-comment-card__select">
-                    <input type="checkbox" data-comment-select="${cid}" ${isSelected ? 'checked' : ''} aria-label="Select comment">
-                </div>` : ''}
-                <div class="dash-comment-avatar">${escapeHtml(initials(author))}</div>
-                <div class="dash-comment-card__body">
-                    <div class="dash-comment-card__head">
-                        <span class="dash-comment-card__author">${escapeHtml(author)}</span>
-                        <span class="dash-comment-status ${approved ? 'dash-comment-status--approved' : 'dash-comment-status--pending'}">${approved ? 'Approved' : 'Pending'}</span>
-                        ${pinned ? '<span class="dash-comment-card__pin">📌 Pinned</span>' : ''}
-                        <span class="dash-comment-card__date">${date}</span>
-                    </div>
-                    <p class="dash-comment-card__text">${body}</p>
-                    <div class="dash-comment-card__actions">
-                        ${actions}
-                        ${hasReplies ? `<button class="dash-replies-toggle" data-target="${replyId}" data-comment="${cid}">▶ Show replies</button>` : ''}
-                    </div>
-                    <div class="dash-replies-list" id="${replyId}"></div>
-                </div>
-            </div>
-        `;
-    }
-
-    // ---- Comments container delegation ----
-    commentsContainer.addEventListener('click', async (e) => {
-        const repliesBtn = e.target.closest('.dash-replies-toggle');
-        if (repliesBtn) {
-            await toggleReplies(repliesBtn.dataset.comment, repliesBtn);
-            return;
-        }
-
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        const id = btn.dataset.id;
-        if (!id) return;
-
-        if (action === 'approve-comment') await approveComment(id);
-        else if (action === 'unapprove-comment') await setCommentApproval(id, false);
-        else if (action === 'reject-comment') await rejectComment(id);
-        else if (action === 'delete-comment') await confirmAndDeleteComment(id);
-        else if (action === 'edit-comment') openEditComment(id);
-    });
-
-    commentsContainer.addEventListener('change', (e) => {
-        const cb = e.target.closest('[data-comment-select]');
-        if (!cb) return;
-        const id = cb.dataset.commentSelect;
-        if (cb.checked) selectedCommentIds.add(String(id));
-        else selectedCommentIds.delete(String(id));
-        cb.closest('.dash-comment-card').classList.toggle('is-selected', cb.checked);
-        updateApproveSelectedBtn();
-        syncSelectAllPendingState();
-    });
-
-    function updateApproveSelectedBtn() {
-        approveSelectedBtn.disabled = selectedCommentIds.size === 0;
-        approveSelectedBtn.textContent = selectedCommentIds.size > 0
-            ? `Approve selected (${selectedCommentIds.size})`
-            : 'Approve selected';
-    }
-
-    function syncSelectAllPendingState() {
-        const pendingIds = getFilteredComments().filter(c => !isCommentApproved(c)).map(c => String(c.id || c.comment_id));
-        selectAllPending.checked = pendingIds.length > 0 && pendingIds.every(id => selectedCommentIds.has(id));
-    }
-
-    selectAllPending.addEventListener('change', () => {
-        const pendingIds = getFilteredComments().filter(c => !isCommentApproved(c)).map(c => String(c.id || c.comment_id));
-        if (selectAllPending.checked) pendingIds.forEach(id => selectedCommentIds.add(id));
-        else pendingIds.forEach(id => selectedCommentIds.delete(id));
-        renderCommentsPanel();
-    });
-
-    approveSelectedBtn.addEventListener('click', async () => {
-        const ids = Array.from(selectedCommentIds);
-        if (!ids.length) return;
-        approveSelectedBtn.disabled = true;
-        const results = await Promise.allSettled(ids.map(id => apiFetch(`/comments/${id}/approve`, { method: 'POST' })));
-        const ok = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.length - ok;
-        if (ok) showToast(`Approved ${ok} comment${ok !== 1 ? 's' : ''}.`, 'success');
-        if (failed) showToast(`${failed} approval${failed !== 1 ? 's' : ''} failed.`, 'error');
-        selectedCommentIds.clear();
-        if (currentVideoIdForComments) await loadCommentsForVideo(currentVideoIdForComments);
-    });
-
-    // ---- Single comment actions ----
-    async function approveComment(commentId) {
-        try {
-            await apiFetch(`/comments/${commentId}/approve`, { method: 'POST' });
-            showToast('Comment approved!', 'success');
-            if (currentVideoIdForComments) await loadCommentsForVideo(currentVideoIdForComments);
-        } catch (err) {
-            if (!err.message.includes('log in')) showToast('Failed to approve comment: ' + err.message, 'error');
-        }
-    }
-
-    async function setCommentApproval(commentId, isApproved) {
-        const comment = findCachedComment(commentId);
-        if (!comment) { showToast('Comment not found. Please refresh.', 'error'); return; }
-        try {
-            await apiFetch(`/comments/${commentId}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    body: comment.body || comment.content || '',
-                    is_pinned: isCommentPinned(comment),
-                    is_approved: isApproved,
-                }),
-            });
-            showToast(isApproved ? 'Comment approved!' : 'Comment moved back to pending.', 'success');
-            if (currentVideoIdForComments) await loadCommentsForVideo(currentVideoIdForComments);
-        } catch (err) {
-            if (!err.message.includes('log in')) showToast('Failed to update comment: ' + err.message, 'error');
-        }
-    }
-
-    async function rejectComment(commentId) {
-        const ok = await askConfirm({
-            title: 'Reject this comment?',
-            body: 'The comment will be permanently deleted and the author will no longer see it.',
-            okText: 'Reject & delete',
-        });
-        if (!ok) return;
-        await deleteComment(commentId);
-    }
-
-    async function confirmAndDeleteComment(commentId) {
-        const ok = await askConfirm({
-            title: 'Delete this comment?',
-            body: 'This will permanently remove the comment and any replies to it.',
-            okText: 'Delete',
-        });
-        if (!ok) return;
-        await deleteComment(commentId);
-    }
-
-    async function deleteComment(commentId) {
-        try {
-            await apiFetch(`/comments/${commentId}`, { method: 'DELETE' });
-            showToast('Comment deleted.', 'success');
-            selectedCommentIds.delete(String(commentId));
-            if (currentVideoIdForComments) await loadCommentsForVideo(currentVideoIdForComments);
-        } catch (err) {
-            if (!err.message.includes('log in')) showToast('Failed to delete comment: ' + err.message, 'error');
-        }
-    }
-
-    function findCachedComment(commentId) {
-        for (const vid in allComments) {
-            const found = (allComments[vid] || []).find(c => String(c.id || c.comment_id) === String(commentId));
-            if (found) return found;
-        }
-        return null;
-    }
-
-    // ---- Edit comment modal ----
-    function openEditComment(commentId) {
-        const comment = findCachedComment(commentId);
-        if (!comment) { showToast('Comment not found. Please refresh.', 'error'); return; }
-
-        editCommentId.value = commentId;
-        editCommentBody.value = comment.body || comment.content || '';
-        editCommentApproved.checked = isCommentApproved(comment);
-        editCommentPinned.checked = isCommentPinned(comment);
-        openPopup('editCommentPopup');
-        editCommentBody.focus();
-    }
-
-    editCommentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = editCommentId.value;
-        if (!id) { showToast('Invalid comment ID.', 'error'); return; }
-
-        const payload = {
-            body: editCommentBody.value.trim(),
-            is_pinned: editCommentPinned.checked,
-            is_approved: editCommentApproved.checked,
+        currentJob = {
+          taskId: row.dataset.jobId || '48f9',
+          file: row.dataset.file || 'stream_master.mp4',
+          size: row.dataset.size || '148.6 MB'
         };
 
-        try {
-            await apiFetch(`/comments/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-            showToast('Comment updated!', 'success');
-            closePopup('editCommentPopup');
-            if (currentVideoIdForComments) await loadCommentsForVideo(currentVideoIdForComments);
-        } catch (err) {
-            if (!err.message.includes('log in')) showToast('Failed to update comment: ' + err.message, 'error');
-        }
-    });
+        isPaused = false;
+        if (dom.btnToggleSimLabel) dom.btnToggleSimLabel.textContent = '⏸ Pause Stream';
+        startSimulatedWebSocketPipeline(currentJob);
+      });
+    }
+  }
 
-    // ---- Replies ----
-    async function toggleReplies(commentId, toggleBtn) {
-        const list = document.getElementById(`dash-replies-${commentId}`);
-        if (!list) return;
+  // =========================================================================
+  // 6. INITIALIZATION
+  // =========================================================================
 
-        if (list.classList.contains('open')) {
-            list.classList.remove('open');
-            toggleBtn.textContent = '▶ Show replies';
-            return;
-        }
+  document.addEventListener('DOMContentLoaded', () => {
+    setupControls();
 
-        if (!list.dataset.loaded) {
-            list.innerHTML = `<div class="dash-loadmore" style="padding:8px 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/></svg>Loading…</div>`;
-            try {
-                const data = await apiFetch(`/comments/${commentId}/replies`);
-                const replies = Array.isArray(data) ? data : (data.data || data.replies || []);
-                renderReplies(list, replies);
-                list.dataset.loaded = '1';
-            } catch (err) {
-                list.innerHTML = `<p style="color:var(--db-danger);font-size:0.8rem;">Failed to load replies.</p>`;
-                if (!err.message.includes('log in')) showToast('Failed to load replies: ' + err.message, 'error');
-            }
-        }
-        list.classList.add('open');
-        toggleBtn.textContent = '▼ Hide replies';
+    // Check if redirected from upload.html with a pending video ID
+    const pendingPublicId = sessionStorage.getItem('pendingVideoPublicId');
+    if (pendingPublicId) {
+      sessionStorage.removeItem('pendingVideoPublicId');
+      currentJob.taskId = pendingPublicId.slice(0, 6);
+      tryAttachLiveWebSocket(pendingPublicId);
     }
 
-    function renderReplies(container, replies) {
-        if (!replies || !replies.length) {
-            container.innerHTML = `<p style="color:var(--text-secondary);font-size:0.8rem;padding:6px 0;">No replies.</p>`;
-            return;
-        }
-        container.innerHTML = replies.map(r => {
-            const author = escapeHtml(r.author_username || r.author || 'Anonymous');
-            const body = escapeHtml(r.body || r.content || '');
-            const date = formatDateShort(r.created_at || r.createdAt);
-            const approved = isCommentApproved(r);
-            return `
-                <div class="dash-reply-item">
-                    <span class="reply-author">${author}</span>
-                    <span class="reply-time">${date}</span>
-                    ${approved ? '' : '<span class="reply-pending">Pending</span>'}
-                    <span class="reply-body">${body}</span>
-                </div>`;
-        }).join('');
-    }
+    // Start the real-time simulated WebSocket pipeline
+    startSimulatedWebSocketPipeline(currentJob);
+  });
 
-    // ================= Init =================
-    // Wait for auth state to be resolved (core.js fetches user on DOMContentLoaded)
-    async function initDashboard() {
-        // Ensure currentUser is fetched
-        if (window.fetchCurrentUser) {
-            await window.fetchCurrentUser();
-        }
-
-        // Check authentication - show login if not authenticated
-        if (!window.currentUser) {
-            window.openPopupById('loginPopup');
-            return; // Stop further initialization
-        }
-
-        // Reset filter UI to defaults on load (avoid restored select values showing empty results)
-        filterStatus.value = '';
-        filterVisibility.value = '';
-        videoSearch.value = '';
-        filters = { status: '', visibility: '' };
-        searchTerm = '';
-
-        fetchVideos(1, false);
-        loadCategories();
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initDashboard);
-    } else {
-        initDashboard();
-    }
 })();

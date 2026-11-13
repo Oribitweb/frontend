@@ -1,232 +1,512 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ORBIT — Dashboard</title>
-<link rel="stylesheet" href="css/main.css">
-<link rel="stylesheet" href="css/popups.css">
-<link rel="stylesheet" href="css/dashboard.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Orbit System Control Dashboard — Real-time video ingestion, Redis broker telemetry, Celery worker states, and FFmpeg HLS transcoding pipeline.">
+  <title>ORBIT — System Control &amp; Pipeline Dashboard</title>
+
+  <!-- Typography: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- System Control Dashboard Stylesheet -->
+  <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
 
-<header class="header">
-  <div class="header__inner">
-    <a href="index.html" class="header__logo"><div class="header__logo-fallback"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg><span>ORBIT</span></div></a>
-    <div class="header__search">
-      <form action="search.html" method="get" style="display:flex;flex:1;align-items:center;">
-        <input type="text" name="q" class="header__search-input" placeholder="Search..." autocomplete="off">
-        <button type="submit" class="header__search-btn" aria-label="Search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
-      </form>
-    </div>
-    <div class="header__actions">
-      <div class="create-container">
-        <button class="header__create-btn" id="createBtn" aria-label="Create"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-        <div class="create-dropdown" id="createDropdown"><div class="dropdown__section"><button class="dropdown__item" data-popup="channelPopup">Create Channel</button><button class="dropdown__item" data-popup="uploadPopup">Upload Video</button></div></div>
-      </div>
-      <button class="header__profile-btn" id="profileBtn" aria-label="Profile"><div class="header__profile-avatar" id="profileAvatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></button>
-      <div class="dropdown" id="profileDropdown"></div>
-    </div>
-  </div>
-</header>
+  <!-- Subtle Technical Grid Backdrop -->
+  <div class="sys-grid-backdrop" aria-hidden="true"></div>
 
-<aside class="sidebar sidebar--collapsed" id="sidebar">
-  <nav class="sidebar__nav">
-    <a href="index.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Explore</span></a>
-    <a href="trending.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Trending</span></a>
-    <a href="lives.html" class="sidebar__item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Live</span></a>
-    <a href="dashboard.html" class="sidebar__item sidebar__item--active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-3v12l-5-3"/></svg><span>Dashboard</span></a>
-  </nav>
-  <div class="sidebar__divider"></div>
-  <div class="sidebar__channels-title">Subscriptions</div>
-  <a href="channel.html" class="sidebar__channel"><div class="sidebar__channel-avatar" style="background:#00c853;">C</div><span>Channel Name</span></a>
-  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#ff3b30;">M</div><span>Music Lounge</span></a>
-  <a href="channel.html" class="sidebar__channel hidden-channel" style="display:none;"><div class="sidebar__channel-avatar" style="background:#6495ed;">S</div><span>Space Today</span></a>
-  <button class="sidebar__show-more" id="showMoreChannels">Show more</button>
-  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-</aside>
+  <div class="sys-shell">
 
-<main class="main-content" id="mainContent">
-  <div class="dash-header">
-    <div class="dash-header__text">
-      <h1 class="dash-header__title">Dashboard</h1>
-      <p class="dash-header__subtitle">Manage your videos and moderate comments in one place.</p>
-    </div>
-    <div class="dash-header__stats" id="dashboardStats">
-      <div class="dash-stat"><span class="dash-stat__value" id="statVideos">—</span><span class="dash-stat__label">Videos</span></div>
-      <div class="dash-stat"><span class="dash-stat__value" id="statComments">—</span><span class="dash-stat__label">Comments</span></div>
-      <div class="dash-stat dash-stat--warning"><span class="dash-stat__value" id="statPending">—</span><span class="dash-stat__label">Pending review</span></div>
-      <button class="dash-stat-refresh" id="refreshDashboard" title="Refresh" aria-label="Refresh dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
-    </div>
-  </div>
-
-  <div class="dash-tabs" role="tablist">
-    <button class="dash-tab dash-tab--active" role="tab" data-tab="videos" aria-selected="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-3v12l-5-3"/></svg> My Videos</button>
-    <button class="dash-tab" role="tab" data-tab="comments" aria-selected="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Comments <span class="dash-tab__badge" id="commentsTabBadge" hidden>0</span></button>
-  </div>
-
-  <section class="dash-panel dash-panel--active" id="tabVideos" role="tabpanel">
-    <div class="dash-toolbar">
-      <div class="dash-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="videoSearch" placeholder="Search your videos…" aria-label="Search your videos"></div>
-      <div class="dash-toolbar__right">
-        <select id="filterStatus" aria-label="Filter by status"><option value="">All statuses</option><option value="uploading">Uploading</option><option value="processing">Processing</option><option value="ready">Ready</option><option value="failed">Failed</option></select>
-        <select id="filterVisibility" aria-label="Filter by visibility"><option value="">All visibility</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option><option value="scheduled">Scheduled</option></select>
-        <select id="sortVideos" aria-label="Sort videos"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="views">Most viewed</option><option value="title">Title A–Z</option></select>
-        <div class="dash-view-toggle" role="group" aria-label="Layout">
-          <button type="button" class="dash-view-toggle__btn" data-view="grid" aria-pressed="false" aria-label="Grid view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
-          <button type="button" class="dash-view-toggle__btn dash-view-toggle__btn--active" data-view="list" aria-pressed="true" aria-label="List view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
+    <!-- ================================================================
+         TOP OPERATIONAL COMMAND HEADER
+         ================================================================ -->
+    <header class="sys-topbar">
+      <div class="sys-topbar__left">
+        <a href="index.html" class="sys-brand" aria-label="Orbit Home">
+          <div class="sys-brand__logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+            </svg>
+          </div>
+          <span>ORBIT</span>
+        </a>
+        <div class="sys-divider" aria-hidden="true"></div>
+        <div class="sys-plane-title">
+          <span class="sys-plane-badge">CONTROL PLANE</span>
+          <span>MEDIA PIPELINE &amp; WORKER TELEMETRY</span>
         </div>
-        <button type="button" class="btn btn--ghost btn--small" id="selectModeToggle">Select</button>
       </div>
-    </div>
 
-    <div class="dash-bulkbar" id="videoBulkBar" hidden>
-      <span class="dash-bulkbar__count"><strong id="videoBulkCount">0</strong> selected</span>
-      <div class="dash-bulkbar__actions">
-        <select id="bulkVisibility" aria-label="Change visibility for selected videos"><option value="">Change visibility to…</option><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option><option value="scheduled">Scheduled</option></select>
-        <button type="button" class="btn btn--primary btn--small" id="bulkVisibilityApply">Apply</button>
-        <button type="button" class="btn btn--ghost btn--small" id="bulkClear">Cancel</button>
+      <div class="sys-topbar__right">
+        <div class="ws-connection-pill" title="Simulated / Live FastAPI WebSocket Pub/Sub Stream">
+          <span class="ws-dot" id="wsHeaderDot"></span>
+          <span id="wsHeaderStatus">WS_PUBSUB: CONNECTED</span>
+        </div>
+
+        <button type="button" class="sys-btn" id="btnToggleSim" title="Pause or resume real-time simulation">
+          <span id="btnToggleSimLabel">⏸ Pause Stream</span>
+        </button>
+
+        <button type="button" class="sys-btn sys-btn--neon" id="btnReplayJob" title="Trigger a fresh simulated video transcoding job">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Dispatch New Job</span>
+        </button>
+
+        <a href="upload.html" class="sys-btn sys-btn--primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>Ingest Video</span>
+        </a>
+
+        <a href="login.html" class="sys-btn" title="View Authentication Architecture Trace">
+          <span>Auth Trace</span>
+        </a>
       </div>
-    </div>
+    </header>
 
-    <p class="dash-result-count" id="filterResult"></p>
-    <div class="dash-video-grid" id="videoGrid" data-view="list"></div>
+    <!-- ================================================================
+         COMPONENT 3: SYSTEM METRICS OVERVIEW (4-CARD TELEMETRY GRID)
+         ================================================================ -->
+    <section class="metrics-grid" aria-label="System Metrics Overview">
 
-    <div class="dash-skeleton-grid" id="videoSkeleton">
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-      <div class="dash-skeleton-card"><div class="dash-skeleton-card__thumb shimmer"></div><div class="dash-skeleton-card__line shimmer" style="width:80%;"></div><div class="dash-skeleton-card__line shimmer" style="width:50%;"></div></div>
-    </div>
-
-    <div id="videoGridEmpty" class="dash-empty" hidden>
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>
-      <h3>No videos match your filters</h3><p>Try adjusting or clearing your filters.</p>
-      <button type="button" class="btn btn--ghost btn--small" id="clearFilters">Clear filters</button>
-    </div>
-
-    <div id="videoGridError" class="dash-empty dash-empty--error" hidden>
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <h3>Couldn't load your videos</h3><p>Check your connection and try again.</p>
-      <button type="button" class="btn btn--primary btn--small" id="retryVideos">Retry</button>
-    </div>
-
-    <div id="videoGridSentinel" class="dash-sentinel"></div>
-    <div class="dash-loadmore" id="videoLoadingMore" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v4"/></svg> Loading more…</div>
-  </section>
-
-  <section class="dash-panel" id="tabComments" role="tabpanel">
-    <div class="dash-comments">
-      <aside class="dash-comments__sidebar">
-        <div class="dash-comments__field"><label for="commentVideoSelector">Video</label><select id="commentVideoSelector"><option value="">— Select a video —</option></select></div>
-        <div class="dash-comments__field"><label for="commentSearch">Search</label><div class="dash-search dash-search--compact"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="commentSearch" placeholder="Author or text…" disabled></div></div>
-        <div class="dash-chips" id="commentFilterChips" role="tablist" aria-label="Filter comments">
-          <button type="button" class="dash-chip dash-chip--active" data-filter="all">All</button>
-          <button type="button" class="dash-chip" data-filter="pending">Pending</button>
-          <button type="button" class="dash-chip" data-filter="approved">Approved</button>
+      <!-- Metric 1: Active Worker Threads -->
+      <article class="metric-card">
+        <div class="metric-card__top">
+          <span class="metric-card__label">Active Worker Threads</span>
+          <svg class="metric-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+            <line x1="9" y1="1" x2="9" y2="4"></line>
+            <line x1="15" y1="1" x2="15" y2="4"></line>
+            <line x1="9" y1="20" x2="9" y2="23"></line>
+            <line x1="15" y1="20" x2="15" y2="23"></line>
+          </svg>
         </div>
-        <div class="dash-comments__bulk" id="commentBulkBar" hidden>
-          <label class="dash-checkbox"><input type="checkbox" id="selectAllPending"><span>Select all pending</span></label>
-          <button type="button" class="btn btn--primary btn--small" id="approveSelectedBtn" disabled>Approve selected</button>
+        <div class="metric-card__value-row">
+          <span class="metric-card__value" id="metricWorkers">12 / 16</span>
+          <span class="metric-card__delta" id="metricWorkersLoad">75% LOAD</span>
         </div>
-      </aside>
-      <div class="dash-comments__main">
-        <div id="commentsContainer">
-          <div class="dash-empty dash-empty--inline">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <p>Select a video on the left to view and moderate its comments.</p>
+        <div class="metric-card__bar">
+          <div class="metric-card__bar-fill" id="metricWorkersBar" style="width: 75%;"></div>
+        </div>
+        <div class="metric-card__meta">
+          <span>Pool: prefork (Celery 5.4)</span>
+          <span>Concurrency: 4x/node</span>
+        </div>
+      </article>
+
+      <!-- Metric 2: Redis Queue Latency -->
+      <article class="metric-card metric-card--indigo">
+        <div class="metric-card__top">
+          <span class="metric-card__label">Redis Queue Latency</span>
+          <svg class="metric-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="metric-card__value-row">
+          <span class="metric-card__value" id="metricRedisLatency">1.4 ms</span>
+          <span class="metric-card__delta" id="metricQueueDepth">0 BACKLOG</span>
+        </div>
+        <div class="metric-card__bar">
+          <div class="metric-card__bar-fill" id="metricRedisBar" style="width: 18%;"></div>
+        </div>
+        <div class="metric-card__meta">
+          <span>Broker: Redis 7.2 Pub/Sub</span>
+          <span>P99: 2.1 ms</span>
+        </div>
+      </article>
+
+      <!-- Metric 3: Storage Throughput -->
+      <article class="metric-card metric-card--emerald">
+        <div class="metric-card__top">
+          <span class="metric-card__label">Storage Throughput</span>
+          <svg class="metric-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          </svg>
+        </div>
+        <div class="metric-card__value-row">
+          <span class="metric-card__value" id="metricThroughput">348.2 MB/s</span>
+          <span class="metric-card__delta">S3 I/O OK</span>
+        </div>
+        <div class="metric-card__bar">
+          <div class="metric-card__bar-fill" id="metricThroughputBar" style="width: 68%;"></div>
+        </div>
+        <div class="metric-card__meta">
+          <span>Bucket: orbit-media-prod</span>
+          <span>Multipart + HLS</span>
+        </div>
+      </article>
+
+      <!-- Metric 4: FFmpeg Encoding Speed -->
+      <article class="metric-card metric-card--amber">
+        <div class="metric-card__top">
+          <span class="metric-card__label">FFmpeg ABR Velocity</span>
+          <svg class="metric-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="metric-card__value-row">
+          <span class="metric-card__value" id="metricFpsSpeed">3.6x RT</span>
+          <span class="metric-card__delta" id="metricFpsValue">216 FPS</span>
+        </div>
+        <div class="metric-card__bar">
+          <div class="metric-card__bar-fill" id="metricFpsBar" style="width: 82%;"></div>
+        </div>
+        <div class="metric-card__meta">
+          <span>Codec: libx264 (veryfast)</span>
+          <span>GOP: 4s Closed</span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ================================================================
+         COMPONENT 1: ACTIVE PIPELINE MONITOR (END-TO-END NODE GRAPH)
+         ================================================================ -->
+    <section class="pipeline-monitor-panel" aria-labelledby="pipelineMonitorHeading">
+      <div class="panel-header">
+        <div class="panel-header__title-group">
+          <div class="panel-eyebrow">
+            <span class="ws-dot"></span>
+            <span>ACTIVE PIPELINE EXECUTION GRAPH</span>
+          </div>
+          <h1 class="panel-title" id="pipelineMonitorHeading">End-to-End Video Transcoding &amp; HLS Packaging</h1>
+        </div>
+
+        <div class="job-context-pills">
+          <span class="job-pill">Task ID: <strong id="activeTaskId">#48f9</strong></span>
+          <span class="job-pill">Source: <strong id="activeSourceFile">distributed_consensus_4k60.mp4</strong></span>
+          <span class="job-pill">Payload: <strong id="activePayloadSize">148.6 MB (19 Chunks)</strong></span>
+          <span class="job-pill">Pipeline: <strong id="activeOverallPct">0%</strong></span>
+        </div>
+      </div>
+
+      <!-- 5-Stage Node Graph -->
+      <div class="node-graph" role="list" aria-label="Video processing stages">
+        <div class="node-graph__bus" aria-hidden="true">
+          <div class="node-graph__bus-progress" id="nodeBusProgress"></div>
+        </div>
+
+        <!-- Stage 1: Ingestion -->
+        <div class="stage-node is-queued" id="stage-ingest" role="listitem">
+          <div class="stage-node__top">
+            <div class="stage-node__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <span class="stage-node__badge" id="badge-ingest">QUEUED</span>
+          </div>
+          <div class="stage-node__title">1. S3 Ingestion</div>
+          <div class="stage-node__service">FastAPI · S3 · ffprobe</div>
+          <p class="stage-node__desc">Multipart chunk assembly, checksum validation &amp; container stream probe.</p>
+          <div class="stage-node__progress-wrap">
+            <div class="stage-node__progress-meta">
+              <span>Probe &amp; Pull</span>
+              <span id="pct-ingest">0%</span>
+            </div>
+            <div class="stage-node__progress-track">
+              <div class="stage-node__progress-fill" id="bar-ingest"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 2: Queue -->
+        <div class="stage-node is-queued" id="stage-queue" role="listitem">
+          <div class="stage-node__top">
+            <div class="stage-node__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+            <span class="stage-node__badge" id="badge-queue">QUEUED</span>
+          </div>
+          <div class="stage-node__title">2. Broker Queue</div>
+          <div class="stage-node__service">Redis 7 · Celery Worker</div>
+          <p class="stage-node__desc">Task serialization, broker dispatch &amp; isolated worker workspace allocation.</p>
+          <div class="stage-node__progress-wrap">
+            <div class="stage-node__progress-meta">
+              <span>Worker Claim</span>
+              <span id="pct-queue">0%</span>
+            </div>
+            <div class="stage-node__progress-track">
+              <div class="stage-node__progress-fill" id="bar-queue"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 3: FFmpeg Transcoding -->
+        <div class="stage-node is-queued" id="stage-transcode" role="listitem">
+          <div class="stage-node__top">
+            <div class="stage-node__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+            </div>
+            <span class="stage-node__badge" id="badge-transcode">QUEUED</span>
+          </div>
+          <div class="stage-node__title">3. FFmpeg ABR</div>
+          <div class="stage-node__service">libx264 · 1080p/720p/480p</div>
+          <p class="stage-node__desc">Multi-pass adaptive bitrate ladder encoding with keyframe alignment.</p>
+          <div class="stage-node__progress-wrap">
+            <div class="stage-node__progress-meta">
+              <span>ABR Ladder</span>
+              <span id="pct-transcode">0%</span>
+            </div>
+            <div class="stage-node__progress-track">
+              <div class="stage-node__progress-fill" id="bar-transcode"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 4: HLS Segmenting -->
+        <div class="stage-node is-queued" id="stage-hls" role="listitem">
+          <div class="stage-node__top">
+            <div class="stage-node__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <span class="stage-node__badge" id="badge-hls">QUEUED</span>
+          </div>
+          <div class="stage-node__title">4. HLS Packaging</div>
+          <div class="stage-node__service">master.m3u8 · .ts · VTT</div>
+          <p class="stage-node__desc">Slicing 4s MPEG-TS segments, variant playlists &amp; timeline preview sprites.</p>
+          <div class="stage-node__progress-wrap">
+            <div class="stage-node__progress-meta">
+              <span>Segmenting</span>
+              <span id="pct-hls">0%</span>
+            </div>
+            <div class="stage-node__progress-track">
+              <div class="stage-node__progress-fill" id="bar-hls"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 5: Storage Indexing -->
+        <div class="stage-node is-queued" id="stage-index" role="listitem">
+          <div class="stage-node__top">
+            <div class="stage-node__icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="stage-node__badge" id="badge-index">QUEUED</span>
+          </div>
+          <div class="stage-node__title">5. Storage Indexing</div>
+          <div class="stage-node__service">S3 Processed · PostgreSQL</div>
+          <p class="stage-node__desc">Pushing HLS manifest tree to S3 &amp; committing ready state to database.</p>
+          <div class="stage-node__progress-wrap">
+            <div class="stage-node__progress-meta">
+              <span>S3 Sync</span>
+              <span id="pct-index">0%</span>
+            </div>
+            <div class="stage-node__progress-track">
+              <div class="stage-node__progress-fill" id="bar-index"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- Edit Video Modal -->
-  <div class="popup" id="editVideoPopup" role="dialog" aria-modal="true" aria-labelledby="editVideoTitle">
-    <div class="popup__panel popup__panel--dashboard-edit">
-      <button class="popup__close" data-close="editVideoPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      <div class="popup__icon-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-      <h2 class="popup__title" id="editVideoTitle">Edit Video</h2>
-      <p class="popup__subtitle">Update your video's information</p>
-      <form id="editVideoForm" novalidate>
-        <input type="hidden" id="editVideoId" value="">
-        <div class="dash-form-section"><h4 class="dash-form-section__title">Details</h4>
-          <div class="form-grid">
-            <div class="input-group full-width"><label for="editTitle">Title <span class="required">*</span></label><input type="text" id="editTitle" placeholder="Video title" required><span class="dash-char-count" id="editTitleCount">0 characters</span></div>
-            <div class="input-group full-width"><label for="editDescription">Description</label><textarea id="editDescription" placeholder="Describe your video..."></textarea></div>
+      <!-- Multi-Resolution FFmpeg Sub-Pipeline Matrix (1080p, 720p, 480p) -->
+      <div class="rendition-matrix" aria-label="FFmpeg Multi-Resolution Encoding Matrix">
+        <div class="rendition-matrix__header">
+          <div class="rendition-matrix__title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span>FFMPEG SUB-PIPELINE //</span>
+            <span>ADAPTIVE BITRATE RENDITIONS (1080p · 720p · 480p)</span>
+          </div>
+          <div class="rendition-matrix__specs">
+            Preset: veryfast &nbsp;|&nbsp; Audio: AAC 128k 48kHz &nbsp;|&nbsp; Segment Target: 4.0s
           </div>
         </div>
-        <div class="dash-form-section"><h4 class="dash-form-section__title">Publishing</h4>
-          <div class="form-grid">
-            <div class="input-group"><label for="editVisibility">Visibility</label><select id="editVisibility"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></div>
-            <div class="input-group"><label for="editCategory">Category</label><select id="editCategory"></select></div>
-            <div class="input-group"><label for="editLanguage">Language</label><select id="editLanguage"><option value="en">English</option><option value="fa">Persian</option><option value="es">Spanish</option><option value="fr">French</option><option value="ar">Arabic</option><option value="de">German</option></select></div>
-            <div class="input-group"><label for="editLicense">License</label><select id="editLicense"><option value="standard">Orbit Standard License</option><option value="cc">Creative Commons</option></select></div>
-            <div class="input-group full-width"><label for="editScheduledAt">Schedule (optional)</label><input type="datetime-local" id="editScheduledAt"></div>
+
+        <div class="rendition-grid">
+          <!-- 1080p Card -->
+          <div class="rendition-card" id="rendition-1080p">
+            <div class="rendition-card__top">
+              <div class="rendition-name">
+                <span>1080p Full HD</span>
+                <span class="rendition-tag">5000 kbps</span>
+              </div>
+              <span class="rendition-pct" id="pct-1080p">0%</span>
+            </div>
+            <div class="rendition-bar-track">
+              <div class="rendition-bar-fill" id="bar-1080p"></div>
+            </div>
+            <div class="rendition-telemetry">
+              <span>Scale: 1920×1080</span>
+              <span id="state-1080p">Waiting for worker...</span>
+            </div>
+          </div>
+
+          <!-- 720p Card -->
+          <div class="rendition-card" id="rendition-720p">
+            <div class="rendition-card__top">
+              <div class="rendition-name">
+                <span>720p HD</span>
+                <span class="rendition-tag">2500 kbps</span>
+              </div>
+              <span class="rendition-pct" id="pct-720p">0%</span>
+            </div>
+            <div class="rendition-bar-track">
+              <div class="rendition-bar-fill" id="bar-720p"></div>
+            </div>
+            <div class="rendition-telemetry">
+              <span>Scale: 1280×720</span>
+              <span id="state-720p">Waiting for worker...</span>
+            </div>
+          </div>
+
+          <!-- 480p Card -->
+          <div class="rendition-card" id="rendition-480p">
+            <div class="rendition-card__top">
+              <div class="rendition-name">
+                <span>480p SD</span>
+                <span class="rendition-tag">1200 kbps</span>
+              </div>
+              <span class="rendition-pct" id="pct-480p">0%</span>
+            </div>
+            <div class="rendition-bar-track">
+              <div class="rendition-bar-fill" id="bar-480p"></div>
+            </div>
+            <div class="rendition-telemetry">
+              <span>Scale: 854×480</span>
+              <span id="state-480p">Waiting for worker...</span>
+            </div>
           </div>
         </div>
-        <div class="dash-form-section"><h4 class="dash-form-section__title">Settings</h4>
-          <div class="form-grid"><div class="input-group full-width">
-            <div class="checkbox-group"><input type="checkbox" id="editAllowComments"><label for="editAllowComments">Allow comments on this video</label></div>
-            <div class="checkbox-group"><input type="checkbox" id="editMadeForKids"><label for="editMadeForKids">Made for kids</label></div>
-          </div></div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn btn--secondary" data-close="editVideoPopup">Cancel</button>
-          <button type="submit" class="btn btn--primary" id="editVideoSubmit">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Edit Comment Modal -->
-  <div class="popup" id="editCommentPopup" role="dialog" aria-modal="true" aria-labelledby="editCommentTitle">
-    <div class="popup__panel popup__panel--dashboard-edit" style="max-width:480px;">
-      <button class="popup__close" data-close="editCommentPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      <div class="popup__icon-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-      <h2 class="popup__title" id="editCommentTitle">Edit Comment</h2>
-      <p class="popup__subtitle">Update the comment content</p>
-      <form id="editCommentForm" novalidate>
-        <input type="hidden" id="editCommentId" value="">
-        <div class="input-group full-width"><label for="editCommentBody">Comment <span class="required">*</span></label><textarea id="editCommentBody" rows="4" placeholder="Edit comment..." required></textarea></div>
-        <div class="input-group full-width">
-          <div class="checkbox-group"><input type="checkbox" id="editCommentApproved"><label for="editCommentApproved">Approved</label></div>
-          <div class="checkbox-group"><input type="checkbox" id="editCommentPinned"><label for="editCommentPinned">Pinned</label></div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn btn--secondary" data-close="editCommentPopup">Cancel</button>
-          <button type="submit" class="btn btn--primary">Save Comment</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="popup" id="confirmPopup" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
-    <div class="popup__panel popup__panel--confirm">
-      <button class="popup__close" data-close="confirmPopup" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      <div class="popup__icon-ring popup__icon-ring--danger"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg></div>
-      <h2 class="popup__title" id="confirmTitle">Delete this?</h2>
-      <p class="popup__subtitle" id="confirmBody">This action can't be undone.</p>
-      <div class="form-actions">
-        <button type="button" class="btn btn--secondary" id="confirmCancelBtn">Cancel</button>
-        <button type="button" class="btn btn--danger" id="confirmOkBtn">Delete</button>
       </div>
+
+    </section>
+
+    <!-- ================================================================
+         LOWER SPLIT GRID: WEBSOCKET EVENT STREAM + CELERY JOB QUEUE
+         ================================================================ -->
+    <div class="lower-grid">
+
+      <!-- COMPONENT 2: WebSocket Simulation Panel -->
+      <section class="ws-terminal-panel" aria-labelledby="wsPanelHeading">
+        <div class="ws-terminal-header">
+          <div class="ws-terminal-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span id="wsPanelHeading">REAL-TIME WEBSOCKET EVENT STREAM</span>
+            <span class="ws-endpoint-tag" id="wsChannelTag">wss://api.orbit.stream/videos/ws/video/48f9</span>
+          </div>
+
+          <div class="ws-terminal-controls">
+            <button type="button" class="ws-filter-btn active" data-ws-filter="all">All</button>
+            <button type="button" class="ws-filter-btn" data-ws-filter="FFMPEG">FFmpeg</button>
+            <button type="button" class="ws-filter-btn" data-ws-filter="QUEUE">Broker/S3</button>
+            <button type="button" class="ws-filter-btn" id="btnClearTerminal">Clear</button>
+          </div>
+        </div>
+
+        <div class="ws-stream-body" id="wsStreamBody" role="log" aria-live="polite">
+          <!-- Dynamically populated by simulated & real WebSocket listener -->
+        </div>
+      </section>
+
+      <!-- Celery Worker Pool & Selectable Pipeline Jobs -->
+      <section class="worker-queue-panel" aria-labelledby="workerQueueHeading">
+        <div class="ws-terminal-header">
+          <div class="ws-terminal-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <span id="workerQueueHeading">CELERY WORKER QUEUE &amp; JOBS</span>
+          </div>
+          <span class="ws-endpoint-tag">Click job to inspect trace</span>
+        </div>
+
+        <div class="queue-list" id="jobQueueList">
+          <div class="job-row is-selected" data-job-id="48f9" data-file="distributed_consensus_4k60.mp4" data-size="148.6 MB (19 Chunks)">
+            <div class="job-row__left">
+              <span class="job-row__title">[Task #48f9] distributed_consensus_4k60.mp4</span>
+              <span class="job-row__meta">Worker: celery@node-01 · 148.6 MB · S3 Multipart</span>
+            </div>
+            <span class="job-row__status job-row__status--running" id="job-badge-48f9">PROCESSING</span>
+          </div>
+
+          <div class="job-row" data-job-id="91c2" data-file="zero_copy_kernel_networking.mp4" data-size="94.2 MB (12 Chunks)">
+            <div class="job-row__left">
+              <span class="job-row__title">[Task #91c2] zero_copy_kernel_networking.mp4</span>
+              <span class="job-row__meta">Worker: celery@node-02 · 94.2 MB · S3 Multipart</span>
+            </div>
+            <span class="job-row__status job-row__status--ready">READY · HLS</span>
+          </div>
+
+          <div class="job-row" data-job-id="77b4" data-file="redis_pubsub_backpressure_test.mp4" data-size="42.8 MB (Single PUT)">
+            <div class="job-row__left">
+              <span class="job-row__title">[Task #77b4] redis_pubsub_backpressure_test.mp4</span>
+              <span class="job-row__meta">Worker: celery@node-03 · 42.8 MB · Presigned PUT</span>
+            </div>
+            <span class="job-row__status job-row__status--ready">READY · HLS</span>
+          </div>
+
+          <div class="job-row" data-job-id="33e8" data-file="hls_cmaf_low_latency_benchmark.mp4" data-size="112.0 MB (14 Chunks)">
+            <div class="job-row__left">
+              <span class="job-row__title">[Task #33e8] hls_cmaf_low_latency_benchmark.mp4</span>
+              <span class="job-row__meta">Worker: celery@node-04 · 112.0 MB · S3 Multipart</span>
+            </div>
+            <span class="job-row__status job-row__status--ready">READY · HLS</span>
+          </div>
+        </div>
+
+        <div class="worker-nodes-footer">
+          <span>Active Nodes: celery@node-01..04</span>
+          <span>Broker: redis://10.0.4.12:6379/0</span>
+        </div>
+      </section>
+
     </div>
+
+    <!-- Footer -->
+    <footer class="sys-footer">
+      <div>ORBIT MEDIA CLOUD // DISTRIBUTED VIDEO TRANSCODING &amp; TELEMETRY CONTROL PLANE</div>
+      <div>FastAPI · PostgreSQL · Redis Pub/Sub · Celery Workers · FFmpeg HLS · S3 Object Storage</div>
+    </footer>
+
   </div>
 
-  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
-</main>
+  <!-- Central API Configuration -->
+  <script src="js/config.js"></script>
 
-<div class="overlay" id="overlay"></div>
-<script src="js/config.js"></script>
-<script src="js/core.js"></script>
-<script src="js/dropdown.js"></script>
-<script src="js/popups.js"></script>
-<script src="js/main.js"></script>
-<script src="js/dashboard.js"></script>
+  <!-- System Control Dashboard & WebSocket Engine -->
+  <script src="js/dashboard.js"></script>
 </body>
 </html>
